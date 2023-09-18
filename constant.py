@@ -4,5 +4,8 @@ class Response:
 
 
 class Indicator:
-    CCI = "CCI"
-    MACD = "MACD"
+    CCI = "cci"
+    MACD = "macd"
+
+class Page:
+    rows_per_page = 20

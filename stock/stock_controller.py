@@ -1,8 +1,11 @@
 import yfinance as yf
+import stock.indicator as indicator
+import csv
 
 from stock.stock_entity import StockTicker
 from stock_indicators import indicators, Quote
-from constant import Indicator
+from constant import Indicator, Page
+from pathlib import Path
 
 
 def getStockTickerData(stock_code: str) -> StockTicker:
@@ -25,26 +28,35 @@ def getStockTickerData(stock_code: str) -> StockTicker:
     return stock_ticker
 
 
-def getIndicator(stock_code: str, indicator: str):
+def searchStocks(data: dict, page_number: int):
     results = {}
+    matchedStocks = []
+    start_row = (page_number - 1) * Page.rows_per_page
 
-    if indicator is None or indicator is "":
-        return results
-    else:
-        stock_ticker = getStockTickerData(stock_code)
-        quote_list = stock_ticker.to_quote_list()
+    csv_file = Path(__file__).resolve().parent.parent / "assets/klse_stocks.csv"
+    with open(csv_file, mode="r") as file:
+        csv_reader = csv.DictReader(file)
+        row_count = 0
 
-        match indicator.upper():
-            case Indicator.CCI:
-                results = getCCI(quote_list)
-                results["stock_code"] = stock_code
-                return results
-            case Indicator.MACD:
-                results = getMACD(quote_list)
-                results["stock_code"] = stock_code
-                return results
-            case _:
-                return results
+        for row in csv_reader:
+            row_count += 1
+            if row_count <= start_row:
+                continue
+
+            stock_code = row["stock_code"]
+            stockTicker = getStockTickerData(stock_code)
+
+            # cci
+            cci = indicator.cci(data.get(Indicator.CCI), stockTicker)
+            if cci:
+                matchedStocks.append(stock_code)
+
+            if row_count - start_row >= Page.rows_per_page:
+                break
+
+        results[Indicator.CCI] = matchedStocks
+
+    return results
 
 
 def getCCI(quote_list: list[Quote]):
