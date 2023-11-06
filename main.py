@@ -12,8 +12,9 @@ CORS(app)
 def getStockByStockCode():
     args = request.args
     stock_code = args.get("stock_code")
+    auto_adjust = args.get("auto_adjust")
     try:
-        stock_ticker = StockController.getStockTickerData(stock_code)
+        stock_ticker = StockController.getStockTickerData(stock_code, auto_adjust)
         Response.success["data"] = stock_ticker.__dict__
         return Response.success
     except:

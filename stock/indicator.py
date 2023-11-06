@@ -9,7 +9,8 @@ def cci(results: dict, stockTicker: StockTicker):
     oversold = results.get("oversold", -100)
     date_from = results.get("date_from", 0)
     date_to = results.get("date_to", 0)
-    step = 86400000
+    # Step is used to increment datetime in milliseconds for a day
+    step = 86400000 
 
     quoteList = stockTicker.to_quote_list()
     cci_results = indicators.get_cci(quoteList, length)

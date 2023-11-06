@@ -1,4 +1,5 @@
 import yfinance as yf
+import datetime as dt
 import stock.indicator as indicator
 import csv
 
@@ -8,9 +9,11 @@ from constant import Indicator, Page
 from pathlib import Path
 
 
-def getStockTickerData(stock_code: str) -> StockTicker:
-    req = yf.Ticker(stock_code + ".KL")
-    stock_df = req.history(period="1y")
+def getStockTickerData(stock_code: str, auto_adjust: str) -> StockTicker:
+    auto_adjust = True if auto_adjust == "true" else False
+    req = yf.Ticker(f"{stock_code}.KL")
+    # print(start, end)
+    stock_df = req.history(period="1y", auto_adjust=auto_adjust)
 
     # Convert Timestamp index to milliseconds
     timestamp_milliseconds = stock_df.index.astype(int) // 10**6
@@ -44,10 +47,17 @@ def searchStocks(data: dict, page_number: int):
                 continue
 
             stock_code = row["stock_code"]
-            stockTicker = getStockTickerData(stock_code)
+            cci_data = data.get(Indicator.CCI)
+            start_date = cci_data["date_from"]
+            end_date = cci_data["date_to"]
+
+            # convert start_date and end_date from milliseconds to datetime
+            start_date = dt.datetime.fromtimestamp(start_date / 1000)
+            end_date = dt.datetime.fromtimestamp(end_date / 1000)
+            stockTicker = getStockTickerData(stock_code, "true", start_date, end_date)
 
             # cci
-            cci = indicator.cci(data.get(Indicator.CCI), stockTicker)
+            cci = indicator.cci(cci_data, stockTicker)
             if cci:
                 matchedStocks.append(stock_code)
 
