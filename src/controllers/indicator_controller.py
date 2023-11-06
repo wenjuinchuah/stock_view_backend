@@ -1,5 +1,5 @@
 from stock_indicators import indicators
-from src.stock.stock_entity import StockTicker
+from src.models.stock_ticker_model import StockTicker
 from datetime import date
 
 

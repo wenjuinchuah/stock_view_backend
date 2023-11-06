@@ -1,7 +1,6 @@
 from flask import Blueprint, request
 from src.constant import Response
-from src.stock.stock_scraper import StockScrape
-import src.stock.stock_controller as StockController
+import src.controllers.stock_controller as StockController
 
 stock_blueprint = Blueprint("stock_blueprint", __name__)
 
@@ -36,7 +35,7 @@ def searchStocks():
 @stock_blueprint.route("/all_klse_stocks", methods=["GET"])
 def getAllKlseStocks():
     try:
-        results = StockScrape.get()
+        results = StockController.scrape()
         Response.success["data"] = results
         return Response.success
     except:
