@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask
 from flask_cors import CORS
 from src.blueprints.stock_blueprints import stock_blueprint
 
