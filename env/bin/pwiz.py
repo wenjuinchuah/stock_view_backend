@@ -1,4 +1,4 @@
-#!/Users/vincentchuah/projects/stock_view_backend/env/bin/python3
+#!/Users/vincentchuah/projects/stock_view_backend/env/bin/python3.11
 
 import datetime
 import os

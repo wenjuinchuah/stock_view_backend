@@ -1,1 +1,34 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+
+# IDE files
+.vscode/
+.idea/
+
+# Compiled Python files
+*.pyc
+*.pyo
+*.pyd
+
+# Python cache files
+__pycache__/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# Local configuration file
+pyproject.toml
+
+# Dependency directories
+# In case you're using poetry for dependency management
+poetry.lock
