@@ -1,6 +1,6 @@
 import yfinance as yf
 import datetime as dt
-import controllers.indicator_controller as indicator_controller
+import controllers.indicator_controller as IndicatorController
 import csv
 
 from bs4 import BeautifulSoup
@@ -12,10 +12,8 @@ from pathlib import Path
 from models.stock_search_model import StockSearchModel, CCIModel
 
 
-def getStockTickerData(stock_code: str, auto_adjust: str) -> StockTicker:
-    auto_adjust = True if auto_adjust == "true" else False
+def getStockTickerData(stock_code: str, auto_adjust: bool) -> StockTicker:
     req = yf.Ticker(f"{stock_code}.KL")
-    # print(start, end)
     stock_df = req.history(period="1y", auto_adjust=auto_adjust)
 
     # Convert Timestamp index to milliseconds
@@ -34,7 +32,7 @@ def getStockTickerData(stock_code: str, auto_adjust: str) -> StockTicker:
     return stock_ticker
 
 
-def searchStocks(data: StockSearchModel, page_number: int):
+def searchStocks(data: StockSearchModel, page_number: int) -> dict:
     results = {}
     matchedStocks = []
     start_row = (page_number - 1) * Page.rows_per_page
@@ -59,7 +57,7 @@ def searchStocks(data: StockSearchModel, page_number: int):
             stockTicker = getStockTickerData(stock_code, "true")
 
             # cci
-            cci = indicator_controller.cci(cci_data, stockTicker)
+            cci = IndicatorController.cci(cci_data, stockTicker)
             if cci:
                 matchedStocks.append(stock_code)
 

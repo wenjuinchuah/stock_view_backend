@@ -9,4 +9,4 @@ class CCIModel(BaseModel):
 
 class StockSearchModel(BaseModel):
     auto_adjust: bool
-    cci: CCIModel | None
+    cci: CCIModel | None = None
