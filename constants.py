@@ -8,10 +8,10 @@ class Response:
 
     @staticmethod
     def success(o: object | dict | None = None) -> dict:
-        if isinstance(o, object):
-            o = o.__dict__
-        elif isinstance(o, dict):
+        if isinstance(o, dict):
             pass
+        elif isinstance(o, object):
+            o = o.__dict__
         return {
             "status": "SUCCESS",
             "data": o if o else None,

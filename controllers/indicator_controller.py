@@ -1,9 +1,8 @@
 from stock_indicators import indicators
 from models.stock_ticker_model import StockTicker
-from datetime import date
 
 
-def cci(results: object, stockTicker: StockTicker):
+def cci(results: object, stock_ticker: StockTicker):
     length = getattr(results, "length", 20)
     overbought = getattr(results, "overbought", 100)
     oversold = getattr(results, "oversold", -100)
@@ -11,25 +10,23 @@ def cci(results: object, stockTicker: StockTicker):
     date_to = getattr(results, "date_to", 0)
 
     # Step is used to increment datetime in milliseconds for a day
-    step = 86400000 
+    step = 86400000
 
-    quoteList = stockTicker.to_quote_list()
-    cci_results = indicators.get_cci(quoteList, length)
+    quote_list = stock_ticker.to_quote_list()
+    cci_results = indicators.get_cci(quote_list, length)
 
     overbought_results = [
         a
         for a, b in zip(cci_results, cci_results[1:])
-        if a.cci != None
-        and a.cci >= overbought
-        and b.cci < overbought
+        if a.cci is not None
+        and a.cci >= overbought > b.cci
         and int(a.date.timestamp() * 1000) in range(date_from, date_to + step, step)
     ]
     oversold_results = [
         a
         for a, b in zip(cci_results, cci_results[1:])
-        if a.cci != None
-        and a.cci <= oversold
-        and b.cci > oversold
+        if a.cci is not None
+        and a.cci <= oversold < b.cci
         and int(a.date.timestamp() * 1000) in range(date_from, date_to + step, step)
     ]
 

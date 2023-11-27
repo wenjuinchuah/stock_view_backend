@@ -12,7 +12,7 @@ from pathlib import Path
 from models.stock_search_model import StockSearchModel, CCIModel
 
 
-def getStockTickerData(stock_code: str, auto_adjust: bool) -> StockTicker:
+def get_stock_ticker_data(stock_code: str, auto_adjust: bool) -> StockTicker:
     req = yf.Ticker(f"{stock_code}.KL")
     stock_df = req.history(period="1y", auto_adjust=auto_adjust)
 
@@ -32,11 +32,11 @@ def getStockTickerData(stock_code: str, auto_adjust: bool) -> StockTicker:
     return stock_ticker
 
 
-def searchStocks(data: StockSearchModel, page_number: int) -> dict:
+# noinspection PyTypeChecker
+def search_stocks(data: StockSearchModel, page_number: int) -> dict:
     results = {}
-    matchedStocks = []
+    matched_stocks = []
     start_row = (page_number - 1) * Page.rows_per_page
-
     csv_file = Path(__file__).resolve().parent.parent / "assets/klse_stocks.csv"
     with open(csv_file, mode="r") as file:
         csv_reader = csv.DictReader(file)
@@ -54,22 +54,22 @@ def searchStocks(data: StockSearchModel, page_number: int) -> dict:
             # convert start_date and end_date from milliseconds to datetime
             start_date = dt.datetime.fromtimestamp(start_date / 1000)
             end_date = dt.datetime.fromtimestamp(end_date / 1000)
-            stockTicker = getStockTickerData(stock_code, "true")
+            stock_ticker = get_stock_ticker_data(stock_code, True)
 
             # cci
-            cci = IndicatorController.cci(cci_data, stockTicker)
+            cci = IndicatorController.cci(cci_data, stock_ticker)
             if cci:
-                matchedStocks.append(stock_code)
+                matched_stocks.append(stock_code)
 
             if row_count - start_row >= Page.rows_per_page:
                 break
 
-        results[Indicator.CCI] = matchedStocks
+        results[Indicator.CCI] = matched_stocks
 
     return results
 
 
-def getCCI(quote_list: list[Quote]):
+def get_cci(quote_list: list[Quote]):
     cci_results = indicators.get_cci(quote_list, 20)
 
     cci = []
@@ -83,7 +83,7 @@ def getCCI(quote_list: list[Quote]):
     }
 
 
-def getMACD(quote_list: list[Quote]):
+def get_macd(quote_list: list[Quote]):
     macd_results = indicators.get_macd(quote_list, 12, 26, 9)
     macd = []
     date = []

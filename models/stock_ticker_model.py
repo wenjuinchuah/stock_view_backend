@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import List
-from stock_indicators import Quote
 from datetime import datetime
+from typing import List
+
+from stock_indicators import Quote
 
 
 @dataclass
@@ -30,7 +31,6 @@ class StockTicker:
                 )
                 for i in range(len(self.timestamp))
             ]
-        except Exception as error:
-            print("An exception occured: ", error)
-
-        return quote_list
+            return quote_list
+        except Exception as e:
+            raise e
