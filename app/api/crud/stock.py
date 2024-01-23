@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
-import pytz
 import yfinance as yf
 from sqlalchemy import func
 
+import app.api.crud.common as common
 from app.api.models.base import Stock, PriceList
 
 
@@ -37,68 +37,46 @@ def get_price_list_data(
 
 
 async def update_stock(db) -> int:
-    # End of KLSE's stock trading hours is 5pm GMT+8
-    end_trading_hours = (
-        datetime.now().replace(hour=17, minute=0, second=0, microsecond=0).time()
-    )
-    current_time = datetime.now().time()
     counter = 0
+    query = db.query(func.max(Stock.updated_at))
 
-    # Condition 1: Check if the last updated date is today
-    last_updated = db.query(func.min(Stock.updated_at)).scalar()
-    last_updated_datetime = (
-        datetime.fromtimestamp(last_updated, tz=pytz.timezone("Asia/Kuala_Lumpur"))
-        if last_updated
-        else None
-    )
-    if (
-        last_updated_datetime
-        and last_updated_datetime.date() == datetime.today().date()
+    # Condition check
+    if common.db_data_days_diff(query, days=0) or (
+        common.db_data_days_diff(query, days=1) and not common.is_after_trading_hour()
     ):
         return counter
 
-    # Condition 2: Check if the last updated date is not today and the current time is after 5pm
-    is_update_needed = not last_updated_datetime or (
-        last_updated_datetime.date() < datetime.today().date()
-        and (
-            current_time > end_trading_hours
-            or (datetime.today().date() - last_updated_datetime.date())
-            > timedelta(days=1)
+    # read all the available stocks from the csv file
+    data = pd.read_csv("app/assets/klse_stocks.csv")
+
+    # replace NaN with None
+    data.replace({pd.NA: None, pd.NaT: None}, inplace=True)
+
+    for index, row in data.iterrows():
+        existing_stock = (
+            db.query(Stock).filter(Stock.stock_code == row["stock_code"]).first()
         )
-    )
 
-    if not last_updated_datetime or is_update_needed:
-        # read all the available stocks from the csv file
-        data = pd.read_csv("app/assets/klse_stocks.csv")
-
-        # replace NaN with None
-        data.replace({pd.NA: None, pd.NaT: None}, inplace=True)
-
-        for index, row in data.iterrows():
-            existing_stock = (
-                db.query(Stock).filter(Stock.stock_code == row["stock_code"]).first()
+        if not existing_stock:
+            # insert all the stocks into the database if it does not exist
+            stock = Stock(
+                stock_code=row["stock_code"],
+                stock_name=row["stock_name"],
+                category=row["category"],
+                is_shariah=row["is_shariah"],
+                updated_at=int(datetime.now().timestamp()),
             )
+            db.add(stock)
+        else:
+            # update the stock if it exists
+            existing_stock.stock_name = row["stock_name"]
+            existing_stock.category = row["category"]
+            existing_stock.is_shariah = row["is_shariah"]
+            existing_stock.updated_at = int(datetime.now().timestamp())
 
-            if not existing_stock:
-                # insert all the stocks into the database if it does not exist
-                stock = Stock(
-                    stock_code=row["stock_code"],
-                    stock_name=row["stock_name"],
-                    category=row["category"],
-                    is_shariah=row["is_shariah"],
-                    updated_at=int(datetime.now().timestamp()),
-                )
-                db.add(stock)
-            else:
-                # update the stock if it exists
-                existing_stock.stock_name = row["stock_name"]
-                existing_stock.category = row["category"]
-                existing_stock.is_shariah = row["is_shariah"]
-                existing_stock.updated_at = int(datetime.now().timestamp())
+        counter += 1
 
-            counter += 1
-
-        # commit changes to the database
-        db.commit()
+    # commit changes to the database
+    db.commit()
 
     return counter

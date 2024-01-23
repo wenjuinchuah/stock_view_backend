@@ -1,9 +1,8 @@
 import asyncio
-from datetime import datetime, timedelta
 
-import pytz
 from sqlalchemy import func
 
+import app.api.crud.common as common
 import app.api.crud.stock as StockCRUD
 from app.api.models.base import Stock, PriceList
 
@@ -33,55 +32,23 @@ async def fetch_price_list_data(stock_code: str, period: str, db) -> list[PriceL
 
 
 async def update_price_list(db) -> int:
-    start_time = datetime.now()
-
-    # End of KLSE's stock trading hours is 5pm GMT+8
-    end_trading_hours = (
-        datetime.now().replace(hour=17, minute=0, second=0, microsecond=0).time()
-    )
-    current_time = datetime.now().time()
-    price_list_data = []
     period = "max"
+    price_list_data = []
+    query = db.query(func.max(PriceList.datetime))
 
-    # Condition 1: Check if the last updated datetime is today
-    existing_record_timestamp = db.query(func.max(PriceList.datetime)).scalar()
-    existing_record_datetime = (
-        datetime.fromtimestamp(
-            existing_record_timestamp, tz=pytz.timezone("Asia/Kuala_Lumpur")
-        )
-        if existing_record_timestamp
-        else None
-    )
-    if (
-        existing_record_datetime
-        and existing_record_datetime.date() == datetime.today().date()
+    # Condition check
+    if common.db_data_days_diff(query, days=0) or (
+        common.db_data_days_diff(query, days=1) and not common.is_after_trading_hour()
     ):
         period = "5d"
         return len(price_list_data)
 
-    # Condition 2: Check if the last updated date is not today and the current time is after 5pm
-    is_update_needed = not existing_record_datetime or (
-        existing_record_datetime.date() < datetime.today().date()
-        and (
-            current_time > end_trading_hours
-            or (datetime.today().date() - existing_record_datetime.date())
-            > timedelta(days=1)
-        )
-    )
+    all_stock_code = db.query(Stock.stock_code).all()
+    all_stock_code = [stock_code[0] for stock_code in all_stock_code]
 
-    if not existing_record_datetime or is_update_needed:
-        all_stock_code = db.query(Stock.stock_code).all()
-        all_stock_code = [stock_code[0] for stock_code in all_stock_code]
+    tasks = [
+        fetch_price_list_data(stock_code, period, db) for stock_code in all_stock_code
+    ]
+    completed_tasks = await asyncio.gather(*tasks)
 
-        tasks = [
-            fetch_price_list_data(stock_code, period, db)
-            for stock_code in all_stock_code
-        ]
-        completed_tasks = await asyncio.gather(*tasks)
-
-        end_time = datetime.now()
-        print(f"Time taken: {end_time - start_time}")
-
-        return sum(len(price_list_data) for price_list_data in completed_tasks)
-
-    return len(price_list_data)
+    return sum(len(price_list_data) for price_list_data in completed_tasks)
