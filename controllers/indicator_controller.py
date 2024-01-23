@@ -1,5 +1,6 @@
 from stock_indicators import indicators
-from models.stock_ticker_model import StockTicker
+
+from app.api.models.stock_ticker import StockTicker
 
 
 def cci(results: object, stock_ticker: StockTicker):

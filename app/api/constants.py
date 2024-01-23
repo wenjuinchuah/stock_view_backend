@@ -7,10 +7,12 @@ class Response:
         }
 
     @staticmethod
-    def success(o: object | dict | None = None) -> dict:
+    def success(o: object | dict | str | None = None) -> dict:
         if isinstance(o, dict):
             pass
-        elif isinstance(o, object):
+        elif isinstance(o, str):
+            o = {"message": o}
+        elif isinstance(o, object) and o is not None:
             o = o.__dict__
         return {
             "status": "SUCCESS",
@@ -24,4 +26,4 @@ class Indicator:
 
 
 class Page:
-    rows_per_page = 20
+    rows_per_page = 100

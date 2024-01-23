@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from constants import Response
+from app.api.constants import Response
+from basemodel.stock_search_model import StockSearchModel
 from controllers import stock_controller as StockController
-from models.stock_search_model import StockSearchModel
 
 router = APIRouter(
     prefix="/stocks",
@@ -11,16 +11,16 @@ router = APIRouter(
 )
 
 
-@router.get("/get")
-def get_stock_by_stock_code(stock_code: str | None = None, auto_adjust: bool = True):
-    try:
-        if stock_code is None or stock_code == "":
-            raise Exception("Stock code is required")
-
-        stock_ticker = StockController.get_stock_ticker_data(stock_code, auto_adjust)
-        return Response.success(stock_ticker)
-    except Exception as e:
-        return Response.error(e)
+# @router.get("/get")
+# def get_stock_by_stock_code(stock_code: str | None = None, auto_adjust: bool = True):
+#     try:
+#         if stock_code is None or stock_code == "":
+#             raise Exception("Stock code is required")
+#
+#         stock_ticker = StockController.get_stock_ticker_data(stock_code, auto_adjust)
+#         return Response.success(stock_ticker)
+#     except Exception as e:
+#         return Response.error(e)
 
 
 @router.post("/search")

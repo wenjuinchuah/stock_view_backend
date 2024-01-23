@@ -1,35 +1,35 @@
-import yfinance as yf
-import datetime as dt
-import controllers.indicator_controller as IndicatorController
 import csv
-
-from bs4 import BeautifulSoup
-from stock_indicators import indicators, Quote
-from models.stock_ticker_model import StockTicker
-from constants import Indicator, Page
+import datetime as dt
 from pathlib import Path
 
-from models.stock_search_model import StockSearchModel, CCIModel
+import yfinance as yf
+from bs4 import BeautifulSoup
+from stock_indicators import indicators, Quote
+
+import controllers.indicator_controller as IndicatorController
+from app.api.constants import Indicator, Page
+from app.api.models.stock_ticker import StockTicker
+from basemodel.stock_search_model import StockSearchModel, CCIModel
 
 
-def get_stock_ticker_data(stock_code: str, auto_adjust: bool) -> StockTicker:
-    req = yf.Ticker(f"{stock_code}.KL")
-    stock_df = req.history(period="1y", auto_adjust=auto_adjust)
-
-    # Convert Timestamp index to milliseconds
-    timestamp_milliseconds = stock_df.index.astype(int) // 10**6
-
-    stock_ticker = StockTicker(
-        stock_code=stock_code,
-        close=stock_df["Close"].tolist(),
-        open=stock_df["Open"].tolist(),
-        high=stock_df["High"].tolist(),
-        low=stock_df["Low"].tolist(),
-        volume=stock_df["Volume"].tolist(),
-        timestamp=timestamp_milliseconds.tolist(),
-    )
-
-    return stock_ticker
+# def get_stock_ticker_data(stock_code: str, auto_adjust: bool) -> StockTicker:
+#     req = yf.Ticker(f"{stock_code}.KL")
+#     stock_df = req.history(period="1y", auto_adjust=auto_adjust)
+#
+#     # Convert Timestamp index to milliseconds
+#     timestamp_milliseconds = stock_df.index.astype(int) // 10**6
+#
+#     stock_ticker = StockTicker(
+#         stock_code=stock_code,
+#         close=stock_df["Close"].tolist(),
+#         open=stock_df["Open"].tolist(),
+#         high=stock_df["High"].tolist(),
+#         low=stock_df["Low"].tolist(),
+#         volume=stock_df["Volume"].tolist(),
+#         timestamp=timestamp_milliseconds.tolist(),
+#     )
+#
+#     return stock_ticker
 
 
 # noinspection PyTypeChecker
@@ -48,16 +48,17 @@ def search_stocks(data: StockSearchModel, page_number: int) -> dict:
 
             stock_code = row["stock_code"]
             cci_data: CCIModel = getattr(data, Indicator.CCI)
-            start_date: int = getattr(cci_data, "date_from")
-            end_date: int = getattr(cci_data, "date_to")
+            start_date: int | dt.datetime = getattr(cci_data, "date_from")
+            end_date: int | dt.datetime = getattr(cci_data, "date_to")
 
             # convert start_date and end_date from milliseconds to datetime
             start_date = dt.datetime.fromtimestamp(start_date / 1000)
             end_date = dt.datetime.fromtimestamp(end_date / 1000)
-            stock_ticker = get_stock_ticker_data(stock_code, True)
+            stock_ticker = get_stock_ticker_data(stock_code, data.auto_adjust)
 
             # cci
             cci = IndicatorController.cci(cci_data, stock_ticker)
+            print(f"{stock_ticker.stock_code}: {cci}")
             if cci:
                 matched_stocks.append(stock_code)
 
@@ -106,7 +107,7 @@ def scrape():
     # Find the table containing stock information
     table = soup.find(
         "table",
-        class_="table table-sm table-theme table-hover tablesorter-bootstrap tablesorter",
+        class_="table table-sm table-theme table-hover tablesorter-bootstrap tablesorter table-bordered table-striped",
     )
 
     if table:
@@ -124,7 +125,9 @@ def scrape():
                 data.append([stock_name, stock_code, is_shariah, category])
 
         # Save data as CSV
-        with open("assets/klse_stocks.csv", "w", newline="", encoding="utf-8") as csvfile:
+        with open(
+            "assets/klse_stocks.csv", "w", newline="", encoding="utf-8"
+        ) as csvfile:
             csv_writer = csv.writer(csvfile)
             csv_writer.writerow(["stock_name", "stock_code", "is_shariah", "category"])
             csv_writer.writerows(data)
