@@ -20,10 +20,5 @@ class Response:
         }
 
 
-class Indicator:
-    CCI = "cci"
-    MACD = "macd"
-
-
 class Page:
     rows_per_page = 100

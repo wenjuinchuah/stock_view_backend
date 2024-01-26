@@ -5,7 +5,8 @@ import yfinance as yf
 from sqlalchemy import func
 
 import app.api.crud.common as common
-from app.api.models.base import Stock, PriceList
+from app.api.models.base import StockBase
+from app.api.models.price_list import PriceList
 
 
 def get_price_list_data(
@@ -25,6 +26,7 @@ def get_price_list_data(
             PriceList(
                 pricelist_id=f"{stock_code}_{int(index.timestamp())}",
                 open=round(row["Open"], 5),
+                close=-1,
                 adj_close=round(row["Close"], 5),
                 high=round(row["High"], 5),
                 low=round(row["Low"], 5),
@@ -38,7 +40,7 @@ def get_price_list_data(
 
 async def update_stock(db) -> int:
     counter = 0
-    query = db.query(func.max(Stock.updated_at))
+    query = db.query(func.max(StockBase.updated_at))
 
     # Condition check
     if common.db_data_days_diff(query, days=0) or (
@@ -54,12 +56,14 @@ async def update_stock(db) -> int:
 
     for index, row in data.iterrows():
         existing_stock = (
-            db.query(Stock).filter(Stock.stock_code == row["stock_code"]).first()
+            db.query(StockBase)
+            .filter(StockBase.stock_code == row["stock_code"])
+            .first()
         )
 
         if not existing_stock:
             # insert all the stocks into the database if it does not exist
-            stock = Stock(
+            stock = StockBase(
                 stock_code=row["stock_code"],
                 stock_name=row["stock_name"],
                 category=row["category"],
@@ -80,3 +84,8 @@ async def update_stock(db) -> int:
     db.commit()
 
     return counter
+
+
+def get_all_stock_code(db) -> list[str]:
+    all_stock_code = db.query(StockBase.stock_code).all()
+    return [stock_code[0] for stock_code in all_stock_code]

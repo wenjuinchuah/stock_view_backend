@@ -1,13 +1,26 @@
-from pydantic import BaseModel, PositiveInt
+from datetime import datetime
+
+from pydantic import BaseModel
+from stock_indicators import Quote
 
 
-class PriceListBase(BaseModel):
-    pricelist_id: int
+class PriceList(BaseModel):
+    pricelist_id: str
     open: float
-    close: float
+    close: float | None
     adj_close: float
     high: float
     low: float
-    volume: PositiveInt
+    volume: int
     datetime: int
     stock_code: str
+
+    def to_quote(self):
+        return Quote(
+            date=datetime.fromtimestamp(self.datetime),
+            open=self.open,
+            high=self.high,
+            low=self.low,
+            close=self.adj_close,
+            volume=self.volume,
+        )
