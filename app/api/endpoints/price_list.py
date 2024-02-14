@@ -27,7 +27,7 @@ router = APIRouter(
 @router.post("/update", status_code=status.HTTP_200_OK)
 async def update_price_list(db: db_dependency):
     try:
-        counter = await crud.update_price_list(db)
+        counter = await crud.update(db)
         return Response.success(f"{counter} price list added/updated successfully")
     except Exception as e:
         return Response.error(e)

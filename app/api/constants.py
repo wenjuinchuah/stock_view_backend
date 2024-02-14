@@ -8,7 +8,7 @@ class Response:
 
     @staticmethod
     def success(o: object | dict | str | None = None) -> dict:
-        if isinstance(o, dict):
+        if isinstance(o, dict) or isinstance(o, list):
             pass
         elif isinstance(o, str):
             o = {"message": o}

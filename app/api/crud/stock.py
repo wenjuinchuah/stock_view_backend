@@ -4,7 +4,7 @@ import pandas as pd
 import yfinance as yf
 from sqlalchemy import func
 
-import app.api.crud.common as common
+import app.api.crud.utils as Utils
 from app.api.models.base import StockBase
 from app.api.models.price_list import PriceList
 
@@ -13,10 +13,15 @@ def get_price_list_data(
     stock_code: str,
     auto_adjust: bool | None = True,
     period: str | None = "1y",
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
 ) -> list[PriceList]:
     priceList = []
     req = yf.Ticker(f"{stock_code}.KL")
-    stock_df = req.history(period=period, auto_adjust=auto_adjust)
+    if start_date and end_date:
+        stock_df = req.history(start=start_date, end=end_date, auto_adjust=auto_adjust)
+    else:
+        stock_df = req.history(period=period, auto_adjust=auto_adjust)
 
     # fill NaN with -1
     stock_df = stock_df.fillna(-1)
@@ -43,8 +48,8 @@ async def update_stock(db) -> int:
     query = db.query(func.max(StockBase.updated_at))
 
     # Condition check
-    if common.db_data_days_diff(query, days=0) or (
-        common.db_data_days_diff(query, days=1) and not common.is_after_trading_hour()
+    if Utils.db_data_days_diff(query, days=0) or (
+        Utils.db_data_days_diff(query, days=1) and not Utils.is_after_trading_hour()
     ):
         return counter
 

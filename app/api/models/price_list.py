@@ -24,3 +24,18 @@ class PriceList(BaseModel):
             close=self.adj_close,
             volume=self.volume,
         )
+
+    def to_base(self):
+        from app.api.models.base import PriceListBase
+
+        return PriceListBase(
+            pricelist_id=self.pricelist_id,
+            open=self.open,
+            close=self.close,
+            adj_close=self.adj_close,
+            high=self.high,
+            low=self.low,
+            volume=self.volume,
+            datetime=self.datetime,
+            stock_code=self.stock_code,
+        )

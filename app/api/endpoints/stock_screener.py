@@ -31,4 +31,4 @@ async def screen_stock(stock_screener: StockScreener, db: db_dependency):
         stock_screener_result = StockScreenerCRUD.screen_stock(stock_screener, db)
         return Response.success(stock_screener_result)
     except Exception as e:
-        raise Response.error(e)
+        return Response.error(e)

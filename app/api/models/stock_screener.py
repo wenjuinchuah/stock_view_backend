@@ -13,11 +13,11 @@ class StockScreenerResult(StockScreener):
     # list of stock code
     result: list[str] | None = None
 
-    def append(self, stock_code: str):
+    def add(self, stock_code_list: list):
         if not self.result:
             self.result = []
 
-        self.result.append(stock_code)
+        self.result.extend(stock_code_list)
 
         # remove duplicate
         self.result = list(dict.fromkeys(self.result))
