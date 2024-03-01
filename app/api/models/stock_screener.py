@@ -6,7 +6,7 @@ from app.api.models.stock_indicator import StockIndicator
 class StockScreener(BaseModel):
     start_date: int
     end_date: int
-    indicator_list: list[StockIndicator] | None = None
+    stock_indicator: StockIndicator | None = None
 
 
 class StockScreenerResult(StockScreener):

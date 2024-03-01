@@ -5,7 +5,6 @@ from stock_indicators import indicators
 
 import app.api.crud.price_list as PriceListCRUD
 import app.api.crud.stock as StockCRUD
-from app.api.models.stock_indicator import Indicator
 from app.api.models.stock_screener import StockScreener, StockScreenerResult
 
 
@@ -24,33 +23,52 @@ async def fetch_db(
         return None
 
     temp_matched_stock = [stock_code]
-    for indicator in results.indicator_list:
-        if not temp_matched_stock:
-            break
 
-        match indicator.name:
-            case Indicator.CCI:
-                if stock_code in temp_matched_stock:
-                    isMatched = process_cci(results, quote_list, indicator)
-                    if not isMatched:
-                        temp_matched_stock = []
+    if results.stock_indicator.cci is not None:
+        if stock_code in temp_matched_stock:
+            isMatched = process_cci(results, quote_list, results.stock_indicator.cci)
+            if not isMatched:
+                temp_matched_stock = []
 
-            case Indicator.MACD:
-                if stock_code in temp_matched_stock:
-                    isMatched = process_macd(results, quote_list, indicator)
-                    if not isMatched:
-                        temp_matched_stock = []
+    if results.stock_indicator.macd is not None:
+        if stock_code in temp_matched_stock:
+            isMatched = process_macd(results, quote_list, results.stock_indicator.macd)
+            if not isMatched:
+                temp_matched_stock = []
 
-            case Indicator.KDJ:
-                if stock_code in temp_matched_stock:
-                    isMatched = process_kdj(results, quote_list, indicator)
-                    if not isMatched:
-                        temp_matched_stock = []
+    if results.stock_indicator.kdj is not None:
+        if stock_code in temp_matched_stock:
+            isMatched = process_kdj(results, quote_list, results.stock_indicator.kdj)
+            if not isMatched:
+                temp_matched_stock = []
 
-            case _:
-                raise Exception("Unknown indicator")
+    # for indicator in results.stock_indicator:
+    #     if not temp_matched_stock:
+    #         break
+    #
+    #     match indicator.name:
+    #         case Indicator.CCI:
+    #             if stock_code in temp_matched_stock:
+    #                 isMatched = process_cci(results, quote_list, indicator)
+    #                 if not isMatched:
+    #                     temp_matched_stock = []
+    #
+    #         case Indicator.MACD:
+    #             if stock_code in temp_matched_stock:
+    #                 isMatched = process_macd(results, quote_list, indicator)
+    #                 if not isMatched:
+    #                     temp_matched_stock = []
+    #
+    #         case Indicator.KDJ:
+    #             if stock_code in temp_matched_stock:
+    #                 isMatched = process_kdj(results, quote_list, indicator)
+    #                 if not isMatched:
+    #                     temp_matched_stock = []
+    #
+    #         case _:
+    #             raise Exception("Unknown indicator")
 
-        return temp_matched_stock[0] if temp_matched_stock else None
+    return temp_matched_stock[0] if temp_matched_stock else None
 
 
 async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
