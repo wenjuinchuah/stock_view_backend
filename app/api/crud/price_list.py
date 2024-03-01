@@ -1,6 +1,7 @@
 import asyncio
 
 from sqlalchemy import func
+from stock_indicators import Quote
 
 import app.api.crud.stock as StockCRUD
 import app.api.crud.utils as Utils
@@ -9,7 +10,7 @@ from app.api.models.price_list import PriceList
 
 
 async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
-    print(f"Fetching price list data for {stock_code}")
+    print(f"Fetching price list data for {stock_code}", end="\r")
 
     price_list_data = []
 
@@ -54,25 +55,27 @@ async def update(db) -> int:
     return sum(len(price_list_data) for price_list_data in completed_tasks)
 
 
-def get(stock_code: str, db) -> list[PriceList]:
-    price_list_data = (
-        db.query(PriceListBase).filter(PriceListBase.stock_code == stock_code).all()
-    )
-
-    return [data.to_price_list() for data in price_list_data]
-
-
-def get_with_start_end_date(
-    stock_code: str, start_date: int, end_date: int, db
-) -> list[PriceList]:
-    price_list_data = (
+def get(stock_code: str, db):
+    print(f"Fetching price list data for {stock_code}", end="\r")
+    return (
         db.query(PriceListBase)
-        .filter(
-            PriceListBase.stock_code == stock_code,
-            PriceListBase.datetime >= start_date,
-            PriceListBase.datetime <= end_date,
-        )
+        .filter(PriceListBase.pricelist_id.startswith(stock_code))
         .all()
     )
 
-    return [data.to_price_list() for data in price_list_data]
+
+def get_price_list(stock_code: str, db) -> list[PriceList]:
+    data_list = get(stock_code, db)
+    return [data.to_price_list() for data in data_list]
+
+
+def get_quote_list_with_start_end_date(
+    stock_code: str, start_date: int, end_date: int, db
+) -> list[Quote]:
+    data_list = get(stock_code, db)
+
+    return [
+        data.to_quote()
+        for data in data_list
+        if start_date - (86400 * 30) <= data.datetime <= end_date
+    ]

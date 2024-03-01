@@ -28,7 +28,7 @@ router = APIRouter(
 @router.post("/screen", status_code=status.HTTP_200_OK)
 async def screen_stock(stock_screener: StockScreener, db: db_dependency):
     try:
-        stock_screener_result = StockScreenerCRUD.screen_stock(stock_screener, db)
+        stock_screener_result = await StockScreenerCRUD.screen_stock(stock_screener, db)
         return Response.success(stock_screener_result)
     except Exception as e:
         return Response.error(e)

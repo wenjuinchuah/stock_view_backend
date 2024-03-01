@@ -33,7 +33,7 @@ def get_stock_by_stock_code(
         if stock_code is None or stock_code == "":
             raise Exception("Stock code is required")
 
-        price_list = PriceListCRUD.get(stock_code, db)
+        price_list = PriceListCRUD.get_price_list(stock_code, db)
 
         return Response.success(price_list)
     except Exception as e:

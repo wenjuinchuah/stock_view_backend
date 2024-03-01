@@ -1,3 +1,4 @@
+import asyncio
 import time
 
 from stock_indicators import indicators
@@ -8,14 +9,52 @@ from app.api.models.stock_indicator import Indicator
 from app.api.models.stock_screener import StockScreener, StockScreenerResult
 
 
-def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
-    # count time taken
-    start = time.time()
+async def fetch_db(
+    stock_code: str,
+    results: StockScreenerResult,
+    db,
+) -> str | None:
+    quote_list = PriceListCRUD.get_quote_list_with_start_end_date(
+        stock_code=stock_code,
+        start_date=results.start_date,
+        end_date=results.end_date,
+        db=db,
+    )
+    if not quote_list:
+        return None
 
-    stock_screener_result = StockScreenerResult(**stock_screener.model_dump())
-    all_stock_code = StockCRUD.get_all_stock_code(db)
-    matched_stock = []
+    temp_matched_stock = [stock_code]
+    for indicator in results.indicator_list:
+        if not temp_matched_stock:
+            break
 
+        match indicator.name:
+            case Indicator.CCI:
+                if stock_code in temp_matched_stock:
+                    isMatched = process_cci(results, quote_list, indicator)
+                    if not isMatched:
+                        temp_matched_stock = []
+
+            case Indicator.MACD:
+                if stock_code in temp_matched_stock:
+                    isMatched = process_macd(results, quote_list, indicator)
+                    if not isMatched:
+                        temp_matched_stock = []
+
+            case Indicator.KDJ:
+                if stock_code in temp_matched_stock:
+                    isMatched = process_kdj(results, quote_list, indicator)
+                    if not isMatched:
+                        temp_matched_stock = []
+
+            case _:
+                raise Exception("Unknown indicator")
+
+        return temp_matched_stock[0] if temp_matched_stock else None
+
+
+async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
+    start_time = time.time()
     if (
         stock_screener.start_date > stock_screener.end_date
         or stock_screener.start_date == 0
@@ -23,58 +62,25 @@ def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
     ):
         raise Exception("Invalid date range")
 
-    for stock_code in all_stock_code:
-        progress = (all_stock_code.index(stock_code) + 1) / len(all_stock_code) * 100
-        price_list = PriceListCRUD.get(stock_code, db)
-        isMatched: bool = True
+    stock_screener_result = StockScreenerResult(**stock_screener.model_dump())
+    all_stock_code = StockCRUD.get_all_stock_code(db)
 
-        print(f"Screening progress: {progress:.2f}%", end="\r")
+    tasks = [
+        fetch_db(stock_code, stock_screener_result, db) for stock_code in all_stock_code
+    ]
+    completed_tasks = await asyncio.gather(*tasks)
 
-        if not price_list:
-            continue
-
-        for indicator in stock_screener.indicator_list:
-            if not isMatched:
-                continue
-
-            temp_matched_stock = [stock_code]
-
-            match indicator.name:
-                case Indicator.CCI:
-                    if stock_code in temp_matched_stock:
-                        isMatched = process_cci(stock_screener, price_list, indicator)
-                        if not isMatched:
-                            temp_matched_stock.remove(stock_code)
-
-                case Indicator.MACD:
-                    if stock_code in temp_matched_stock:
-                        isMatched = process_macd(stock_screener, price_list, indicator)
-                        if not isMatched:
-                            temp_matched_stock.remove(stock_code)
-
-                case Indicator.KDJ:
-                    if stock_code in temp_matched_stock:
-                        isMatched = process_kdj(stock_screener, price_list, indicator)
-                        if not isMatched:
-                            temp_matched_stock.remove(stock_code)
-
-                case _:
-                    raise Exception("Unknown indicator")
-
-            if temp_matched_stock:
-                matched_stock.append(temp_matched_stock[0])
-
+    matched_stock = [stock_code for stock_code in completed_tasks if stock_code]
     stock_screener_result.add(matched_stock)
-
-    # timer
-    end = time.time()
-    print(f"\nScreening time: {end - start:.2f} seconds")
+    end_time = time.time()
+    time_taken = end_time - start_time
+    print(f"\nTime taken: {time_taken:.2f} seconds")
     return stock_screener_result
 
 
-def process_cci(stock_screener, price_list, indicator) -> bool:
+def process_cci(stock_screener, quotes, indicator) -> bool:
     results = indicators.get_cci(
-        [data.to_quote() for data in price_list],
+        quotes,
         indicator.time_period,
     )
     for result in results:
@@ -88,9 +94,9 @@ def process_cci(stock_screener, price_list, indicator) -> bool:
     return False
 
 
-def process_macd(stock_screener, price_list, indicator) -> bool:
+def process_macd(stock_screener, quotes, indicator) -> bool:
     results = indicators.get_macd(
-        [data.to_quote() for data in price_list],
+        quotes,
         indicator.fast_period,
         indicator.slow_period,
         indicator.signal_period,
@@ -106,9 +112,9 @@ def process_macd(stock_screener, price_list, indicator) -> bool:
     return False
 
 
-def process_kdj(stock_screener, price_list, indicator) -> bool:
+def process_kdj(stock_screener, quotes, indicator) -> bool:
     results = indicators.get_stoch(
-        [data.to_quote() for data in price_list],
+        quotes,
         indicator.loopback_period,
         indicator.signal_period,
         indicator.smooth_period,

@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from sqlalchemy import Column, Integer, String, Double, Boolean, BigInteger
+from stock_indicators import Quote
 
 from app.api.dependencies.database import Base
 from app.api.models.price_list import PriceList
@@ -38,4 +41,14 @@ class PriceListBase(Base):
             volume=self.volume,
             datetime=self.datetime,
             stock_code=self.stock_code,
+        )
+
+    def to_quote(self):
+        return Quote(
+            date=datetime.fromtimestamp(self.datetime),
+            open=self.open,
+            high=self.high,
+            low=self.low,
+            close=self.adj_close,
+            volume=self.volume,
         )
