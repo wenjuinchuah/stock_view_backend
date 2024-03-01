@@ -7,6 +7,8 @@ class StockScreener(BaseModel):
     start_date: int
     end_date: int
     stock_indicator: StockIndicator | None = None
+    last_stock_code: str | None = None
+    page_size: int | None = 20
 
 
 class StockScreenerResult(StockScreener):

@@ -1,4 +1,3 @@
-import asyncio
 import time
 
 from stock_indicators import indicators
@@ -42,32 +41,6 @@ async def fetch_db(
             if not isMatched:
                 temp_matched_stock = []
 
-    # for indicator in results.stock_indicator:
-    #     if not temp_matched_stock:
-    #         break
-    #
-    #     match indicator.name:
-    #         case Indicator.CCI:
-    #             if stock_code in temp_matched_stock:
-    #                 isMatched = process_cci(results, quote_list, indicator)
-    #                 if not isMatched:
-    #                     temp_matched_stock = []
-    #
-    #         case Indicator.MACD:
-    #             if stock_code in temp_matched_stock:
-    #                 isMatched = process_macd(results, quote_list, indicator)
-    #                 if not isMatched:
-    #                     temp_matched_stock = []
-    #
-    #         case Indicator.KDJ:
-    #             if stock_code in temp_matched_stock:
-    #                 isMatched = process_kdj(results, quote_list, indicator)
-    #                 if not isMatched:
-    #                     temp_matched_stock = []
-    #
-    #         case _:
-    #             raise Exception("Unknown indicator")
-
     return temp_matched_stock[0] if temp_matched_stock else None
 
 
@@ -83,16 +56,39 @@ async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult
     stock_screener_result = StockScreenerResult(**stock_screener.model_dump())
     all_stock_code = StockCRUD.get_all_stock_code(db)
 
-    tasks = [
-        fetch_db(stock_code, stock_screener_result, db) for stock_code in all_stock_code
-    ]
-    completed_tasks = await asyncio.gather(*tasks)
+    start_index = (
+        all_stock_code.index(stock_screener_result.last_stock_code) + 1
+        if stock_screener_result.last_stock_code
+        else 0
+    )
 
-    matched_stock = [stock_code for stock_code in completed_tasks if stock_code]
+    matched_stock = []
+    for stock_code in all_stock_code[start_index:]:
+        if (
+            len(matched_stock) >= stock_screener_result.page_size
+            or stock_code == all_stock_code[-1]
+        ):
+            stock_screener_result.last_stock_code = (
+                matched_stock[-1] if matched_stock else []
+            )
+            break
+        result = await fetch_db(stock_code, stock_screener_result, db)
+        if result:
+            matched_stock.append(result)
+
+    # tasks = [
+    #     fetch_db(stock_code, stock_screener_result, db) for stock_code in all_stock_code
+    # ]
+    # completed_tasks = await asyncio.gather(*tasks)
+    #
+    # matched_stock = [stock_code for stock_code in completed_tasks if stock_code]
+
     stock_screener_result.add(matched_stock)
+
     end_time = time.time()
     time_taken = end_time - start_time
     print(f"\nTime taken: {time_taken:.2f} seconds")
+
     return stock_screener_result
 
 
