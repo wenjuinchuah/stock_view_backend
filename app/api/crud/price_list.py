@@ -17,11 +17,10 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     # Get price list data
     latest_date = (
         db.query(func.max(PriceListBase.datetime))
-        .filter(PriceListBase.stock_code == stock_code)
+        .filter(PriceListBase.pricelist_id.startswith(stock_code))
         .scalar()
     )
     start_date = latest_date + 86400 if latest_date else None
-
     if start_date:
         price_list_data = StockCRUD.get_price_list_data(
             stock_code,
@@ -77,5 +76,5 @@ def get_quote_list_with_start_end_date(
     return [
         data.to_quote()
         for data in data_list
-        if start_date - (86400 * 30) <= data.datetime <= end_date
+        if start_date - (86400 * 40) <= data.datetime <= end_date
     ]

@@ -19,7 +19,7 @@ def get_db():
 db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
-    prefix="/price_list",
+    prefix="/api/v1/price_list",
     tags=["Price List"],
 )
 
