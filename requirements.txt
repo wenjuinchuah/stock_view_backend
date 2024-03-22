@@ -9,7 +9,7 @@ cffi==1.16.0
 charset-normalizer==3.3.2
 click==8.1.7
 clr-loader==0.2.6
-fastapi==0.104.1
+fastapi==0.110.0
 frozendict==2.4.0
 greenlet==3.0.3
 h11==0.14.0
@@ -36,7 +36,7 @@ six==1.16.0
 sniffio==1.3.1
 soupsieve==2.5
 SQLAlchemy==2.0.27
-starlette==0.27.0
+starlette==0.37.2
 stock-indicators==1.2.0
 typing_extensions==4.10.0
 tzdata==2024.1

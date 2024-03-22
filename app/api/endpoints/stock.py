@@ -40,6 +40,21 @@ def get_stock_by_stock_code(
         return Response.error(e)
 
 
+@router.get("/details/get", status_code=status.HTTP_200_OK)
+def get_stock_details(
+            db: db_dependency, stock_code: str | None = None
+    ):
+        try:
+            if stock_code is None or stock_code == "":
+                raise Exception("Stock code is required")
+
+            stock_details = StockCRUD.get_stock_details(db, stock_code)
+
+            return Response.success(stock_details)
+        except Exception as e:
+            return Response.error(e)
+
+
 @router.post("/update", status_code=status.HTTP_200_OK)
 async def update_stock(db: db_dependency):
     try:

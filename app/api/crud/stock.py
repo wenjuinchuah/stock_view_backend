@@ -94,3 +94,7 @@ async def update_stock(db) -> int:
 def get_all_stock_code(db) -> list[str]:
     all_stock_code = db.query(StockBase.stock_code).all()
     return [stock_code[0] for stock_code in all_stock_code]
+
+
+def get_stock_details(db, stock_code: str) -> StockBase:
+    return db.query(StockBase).filter(StockBase.stock_code == stock_code).first()
