@@ -55,6 +55,23 @@ def get_stock_details(
             return Response.error(e)
 
 
+@router.get("/search", status_code=status.HTTP_200_OK)
+def get_matched_stock_details(
+            db: db_dependency, query: str | None
+    ):
+        try:
+            if query is None or query == "":
+                raise Exception("Query string is required")
+
+            matched_stock_details = StockCRUD.get_matched_stock_details(db, query)
+            if not matched_stock_details:
+                raise Exception("No matched stock found")
+
+            return Response.success(matched_stock_details)
+        except Exception as e:
+            return Response.error(e)
+
+
 @router.post("/update", status_code=status.HTTP_200_OK)
 async def update_stock(db: db_dependency):
     try:

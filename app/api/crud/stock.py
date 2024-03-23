@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 import yfinance as yf
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 import app.api.crud.utils as Utils
 from app.api.models.base import StockBase
@@ -98,3 +98,7 @@ def get_all_stock_code(db) -> list[str]:
 
 def get_stock_details(db, stock_code: str) -> StockBase:
     return db.query(StockBase).filter(StockBase.stock_code == stock_code).first()
+
+
+def get_matched_stock_details(db, query: str) -> list[StockBase]:
+    return db.query(StockBase).filter(or_(StockBase.stock_name.startswith(query), StockBase.stock_code.startswith(query))).all()
