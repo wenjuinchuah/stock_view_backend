@@ -30,8 +30,13 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     else:
         price_list_data = StockCRUD.get_price_list_data(stock_code, period=period)
 
-    # Save to database
-    db.bulk_save_objects([data.to_base() for data in price_list_data])
+    # Add new rows if they don't already exist
+    for data in price_list_data:
+        existing_row = db.query(PriceListBase).filter_by(pricelist_id=data.pricelist_id).first()
+        if not existing_row:
+            # Save to database
+            db.add(data.to_base())
+
     db.commit()
 
     return price_list_data
