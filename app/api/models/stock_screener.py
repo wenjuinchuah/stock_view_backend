@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+from app.api.models.stock import StockDetails
 from app.api.models.stock_indicator import StockIndicator
 
 
@@ -13,7 +14,7 @@ class StockScreener(BaseModel):
 
 class StockScreenerResult(StockScreener):
     # list of stock code
-    result: list[str] | None = None
+    result: list[StockDetails] | None = None
 
     def add(self, stock_code_list: list):
         if not self.result:
@@ -21,5 +22,5 @@ class StockScreenerResult(StockScreener):
 
         self.result.extend(stock_code_list)
 
-        # remove duplicate
+        # remove duplicates
         self.result = list(dict.fromkeys(self.result))

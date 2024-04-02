@@ -12,6 +12,7 @@ class StockBase(Base):
 
     stock_code = Column(String(50), primary_key=True)
     stock_name = Column(String(255))
+    stock_full_name = Column(String(255))
     category = Column(String(255))
     is_shariah = Column(Boolean)
     updated_at = Column(Integer)

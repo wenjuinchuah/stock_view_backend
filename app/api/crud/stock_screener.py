@@ -4,6 +4,7 @@ from stock_indicators import indicators
 
 import app.api.crud.price_list as PriceListCRUD
 import app.api.crud.stock as StockCRUD
+from app.api.models.stock import StockDetails
 from app.api.models.stock_screener import StockScreener, StockScreenerResult
 
 
@@ -11,7 +12,7 @@ async def fetch_db(
     stock_code: str,
     results: StockScreenerResult,
     db,
-) -> str | None:
+) -> StockDetails | None:
     quote_list = PriceListCRUD.get_quote_list_with_start_end_date(
         stock_code=stock_code,
         start_date=results.start_date,
@@ -25,23 +26,34 @@ async def fetch_db(
 
     if results.stock_indicator.cci is not None:
         if stock_code in temp_matched_stock:
-            isMatched = process_cci(results, quote_list, results.stock_indicator.cci)
-            if not isMatched:
+            is_matched = process_cci(results, quote_list, results.stock_indicator.cci)
+            if not is_matched:
                 temp_matched_stock = []
 
     if results.stock_indicator.macd is not None:
         if stock_code in temp_matched_stock:
-            isMatched = process_macd(results, quote_list, results.stock_indicator.macd)
-            if not isMatched:
+            is_matched = process_macd(results, quote_list, results.stock_indicator.macd)
+            if not is_matched:
                 temp_matched_stock = []
 
     if results.stock_indicator.kdj is not None:
         if stock_code in temp_matched_stock:
-            isMatched = process_kdj(results, quote_list, results.stock_indicator.kdj)
-            if not isMatched:
+            is_matched = process_kdj(results, quote_list, results.stock_indicator.kdj)
+            if not is_matched:
                 temp_matched_stock = []
 
-    return temp_matched_stock[0] if temp_matched_stock else None
+    if temp_matched_stock:
+        stock = StockCRUD.get_stock_details(db, stock_code)
+        # Create a new StockDetails instance
+        stock_detail = StockDetails(
+            stock_code=temp_matched_stock[0],
+            stock_name=stock.stock_name,
+            open=quote_list[-1].open,
+            close=quote_list[-1].close,
+        )
+        return stock_detail
+
+    return None
 
 
 async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
@@ -62,26 +74,19 @@ async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult
         else 0
     )
 
-    matched_stock = []
+    matched_stock: list[StockDetails] = []
     for stock_code in all_stock_code[start_index:]:
         if (
             len(matched_stock) >= stock_screener_result.page_size
             or stock_code == all_stock_code[-1]
         ):
             stock_screener_result.last_stock_code = (
-                matched_stock[-1] if matched_stock else []
+                matched_stock[-1].stock_code if matched_stock else None
             )
             break
         result = await fetch_db(stock_code, stock_screener_result, db)
         if result:
             matched_stock.append(result)
-
-    # tasks = [
-    #     fetch_db(stock_code, stock_screener_result, db) for stock_code in all_stock_code
-    # ]
-    # completed_tasks = await asyncio.gather(*tasks)
-    #
-    # matched_stock = [stock_code for stock_code in completed_tasks if stock_code]
 
     stock_screener_result.add(matched_stock)
 
