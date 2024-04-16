@@ -12,11 +12,13 @@ class Response:
             pass
         elif isinstance(o, str):
             o = {"message": o}
+        elif isinstance(o, bool):
+            o = o
         elif isinstance(o, object) and o is not None:
             o = o.__dict__
         return {
             "status": "SUCCESS",
-            "data": o if o else None,
+            "data": o,
         }
 
 

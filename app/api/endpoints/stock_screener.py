@@ -32,3 +32,21 @@ async def screen_stock(stock_screener: StockScreener, db: db_dependency):
         return Response.success(stock_screener_result)
     except Exception as e:
         return Response.error(e)
+
+
+@router.get("/available_rules/get", status_code=status.HTTP_200_OK)
+def get_available_rules(db: db_dependency):
+    try:
+        rules = StockScreenerCRUD.get_available_rules()
+        return Response.success(rules)
+    except Exception as e:
+        return Response.error(e)
+
+
+@router.get("/indicator_selector/get", status_code=status.HTTP_200_OK)
+def get_indicator_selector(db: db_dependency):
+    try:
+        indicator_selector = StockScreenerCRUD.get_indicator_selector()
+        return Response.success(indicator_selector)
+    except Exception as e:
+        return Response.error(e)

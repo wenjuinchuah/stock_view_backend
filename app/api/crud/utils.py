@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import pytz
 
@@ -9,21 +9,21 @@ def timestamp_now() -> int:
     return int(datetime.now(tz).timestamp())
 
 
-def datetime_now_from_timestamp(timestamp: int) -> datetime:
+def date_now_from_timestamp(timestamp: int) -> date:
     return datetime.fromtimestamp(timestamp, tz).date()
 
 
-def datetime_now() -> datetime:
+def date_now() -> date:
     return datetime.now(tz).date()
 
 
 def is_after_trading_hour() -> bool:
-    # End of KLSE's stock trading hours is 12am GMT+8
-    end_trading_hour = (
-        datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0).time()
+    # End of KLSE's stock trading hours is next day 12am GMT+8
+    end_trading_datetime = (datetime.now(tz) + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
     )
-    current_time = datetime.now(tz).time()
-    return current_time >= end_trading_hour
+    current_datetime = datetime.now(tz)
+    return current_datetime >= end_trading_datetime
 
 
 def db_data_days_diff(query, days) -> bool:
@@ -32,6 +32,15 @@ def db_data_days_diff(query, days) -> bool:
         datetime.fromtimestamp(data_timestamp, tz) if data_timestamp else None
     )
 
-    return data_datetime and data_datetime.date() - datetime.now(
-        tz
-    ).date() == timedelta(days)
+    if data_datetime:
+        current_date = datetime.now(tz).date()
+        data_date = data_datetime.date()
+
+        while data_date < current_date:
+            if data_date.weekday() < 5:  # Skip Saturdays(5) and Sundays(6)
+                days -= 1
+            data_date += timedelta(days=1)
+
+        return days == 0
+
+    return False
