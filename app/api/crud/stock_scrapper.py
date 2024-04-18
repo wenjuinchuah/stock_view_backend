@@ -1,43 +1,62 @@
-from bs4 import BeautifulSoup
+import json
+
 
 import requests
 import csv
 import os
 import pandas as pd
+from bs4 import BeautifulSoup
 
 
-def scrape_stock_list(board_id: int):
-    url = "https://www.klsescreener.com/v2/screener/quote_results"
+def scrape_stock_list():
+    url = "https://klse.i3investor.com/wapi/web/stock/listing/datatables"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-        "accept": "*/*",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/123.0.0.0 Safari/537.36",
+        "accept": "application/json, text/javascript, */*; q=0.01",
         "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "origin": "https://www.klsescreener.com",
-        "referer": "https://www.klsescreener.com/v2/",
+        "content-type": "application/json;charset=UTF-8",
+        "origin": "https://klse.i3investor.com",
+        "referer": "https://klse.i3investor.com/web/stock/list",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
         "x-requested-with": "XMLHttpRequest",
     }
-    data = {"getquote": "1", "board": board_id}
-    response = requests.post(url, headers=headers, data=data)
-
-    # Parse HTML content
-    soup = BeautifulSoup(response.text, "html.parser")
+    json_data = {
+        "dtDraw": 1,
+        "start": 0,
+        "order": [
+            {
+                "column": 1,
+                "dir": "asc",
+            },
+        ],
+        "page": 0,
+        "size": 1500,
+        "marketList": [
+            "ACE",
+            "LEAP",
+            "MAIN",
+        ],
+        "sectorList": [],
+        "subsectorList": [],
+        "type": "",
+        "stockType": "",
+    }
+    response = requests.post(url, headers=headers, json=json_data)
+    response_json = json.loads(response.text)
 
     stock_list = []
-    for row in soup.find_all("tr", class_="list"):
-        stock_full_name_td = row.find("td", title=True)
+    for data in response_json["data"]:
         stock = {
-            "stock_full_name": stock_full_name_td["title"],
-            "stock_name": stock_full_name_td.find("a").text,
-            "stock_code": row.find("td", title="Code").text,
-            "is_shariah": (
-                True
-                if stock_full_name_td.find("span", title="Shariah Compliant")
-                else False
-            ),
-            "category": row.find("td", title="Category").find("small").text,
+            "stock_code": data[14],
+            "stock_name": data[13],
+            "stock_full_name": BeautifulSoup(data[1], "html.parser")
+            .find("a")
+            .find_next_sibling("br")
+            .next_sibling,
+            "category": data[10],
+            "is_shariah": False,  # Temporary setting all to False
         }
         stock_list.append(stock)
 

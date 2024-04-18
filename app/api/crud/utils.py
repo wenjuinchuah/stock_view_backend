@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, date
 
 import pytz
+from sqlalchemy import func
 
 tz = pytz.timezone("Asia/Kuala_Lumpur")
 
@@ -17,13 +18,22 @@ def date_now() -> date:
     return datetime.now(tz).date()
 
 
-def is_after_trading_hour() -> bool:
+def is_after_trading_hour(db, column_name: int) -> bool:
     # End of KLSE's stock trading hours is next day 12am GMT+8
     end_trading_datetime = (datetime.now(tz) + timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
     current_datetime = datetime.now(tz)
-    return current_datetime >= end_trading_datetime
+    after_trading_hour = current_datetime >= end_trading_datetime
+
+    query = db.query(func.max(column_name))
+
+    if db_data_days_diff(query, days=0) or (
+        db_data_days_diff(query, days=1) and not after_trading_hour
+    ):
+        return False
+
+    return True
 
 
 def db_data_days_diff(query, days) -> bool:

@@ -1,12 +1,9 @@
 import asyncio
-import time
+from datetime import date
 
-import aiohttp
-import pandas as pd
 import yfinance as yf
 from sqlalchemy import func
 from stock_indicators import Quote
-from io import StringIO
 
 import app.api.crud.stock as StockCRUD
 import app.api.crud.utils as Utils
@@ -29,8 +26,8 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     if start_date:
         price_list_data = await get_price_list_data(
             stock_code,
-            start_date=start_date,
-            end_date=Utils.timestamp_now(),
+            start_date=Utils.date_now_from_timestamp(start_date),
+            end_date=Utils.date_now(),
         )
     else:
         price_list_data = await get_price_list_data(stock_code, period=period)
@@ -51,7 +48,7 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
 async def update(db) -> int:
     period = "max"
 
-    if not is_after_trading_hour(db):
+    if not Utils.is_after_trading_hour(db, PriceListBase.datetime):
         return 0
 
     all_stock_code = StockCRUD.get_all_stock_code(db)
@@ -72,7 +69,7 @@ def get(stock_code: str, db):
 
 def get_price_list(stock_code: str, db) -> list[PriceList]:
     data_list = get(stock_code, db)
-    return [data.to_price_list() for data in data_list]
+    return [data.to_price_list() for data in data_list if data.stock_code == stock_code]
 
 
 def get_quote_list_with_start_end_date(
@@ -90,21 +87,23 @@ def get_quote_list_with_start_end_date(
 
 async def get_price_list_data(
     stock_code: str,
-    auto_adjust: bool | None = True,
     period: str | None = "1y",
-    start_date: int | None = None,
-    end_date: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> list[PriceList]:
     price_list = []
 
-    req = yf.Ticker(f"{stock_code}.KL")
-    if start_date and end_date:
-        stock_df = req.history(start=start_date, end=end_date, auto_adjust=auto_adjust)
-    else:
-        stock_df = req.history(period=period, auto_adjust=auto_adjust)
+    # req = yf.Ticker(f"{stock_code}.KL")
+    tickers = (f"{stock_code}.KL",)
 
-    # fill NaN with -1
-    stock_df = stock_df.fillna(-1)
+    if start_date and end_date:
+        stock_df = yf.download(tickers, start=start_date, end=end_date, progress=False)
+    else:
+        stock_df = yf.download(tickers, period=period, progress=False)
+
+    # fill NaN with -1 /
+    if stock_df.empty:
+        return price_list
 
     for index, row in stock_df.iterrows():
         timestamp = int(index.timestamp())
@@ -112,8 +111,8 @@ async def get_price_list_data(
             PriceList(
                 pricelist_id=f"{stock_code}_{timestamp}",
                 open=round(row["Open"], 5),
-                close=-1,
-                adj_close=round(row["Close"], 5),
+                close=round(row["Close"], 5),
+                adj_close=round(row["Adj Close"], 5),
                 high=round(row["High"], 5),
                 low=round(row["Low"], 5),
                 volume=int(row["Volume"]),
@@ -122,13 +121,3 @@ async def get_price_list_data(
             )
         )
     return price_list
-
-
-def is_after_trading_hour(db) -> bool:
-    query = db.query(func.max(PriceListBase.datetime))
-    if Utils.db_data_days_diff(query, days=0) or (
-        Utils.db_data_days_diff(query, days=1) and not Utils.is_after_trading_hour()
-    ):
-        return False
-
-    return True

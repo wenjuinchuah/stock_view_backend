@@ -10,17 +10,13 @@ import app.api.crud.stock_scrapper as StockScrapper
 
 async def update_stock(db) -> int:
     counter = 0
-    query = db.query(func.max(StockBase.updated_at))
 
     # Condition check
-    if Utils.db_data_days_diff(query, days=0) or (
-        Utils.db_data_days_diff(query, days=1) and not Utils.is_after_trading_hour()
-    ):
+    if not Utils.is_after_trading_hour(db, StockBase.updated_at):
         return counter
 
-    # Scrape stock listing from KLSE Screener (Board id: Main[1], Ace[2], Leap[6])
-    for board_id in [1, 2, 6]:
-        StockScrapper.scrape_stock_list(board_id)
+    # Scrape stock listing from i3Investor Screener
+    StockScrapper.scrape_stock_list()
 
     # read all the available stocks from the csv file
     data = pd.read_csv("app/assets/stock_list.csv")
