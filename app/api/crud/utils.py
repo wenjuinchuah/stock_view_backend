@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 
 import pytz
 from sqlalchemy import func
@@ -7,23 +7,23 @@ tz = pytz.timezone("Asia/Kuala_Lumpur")
 
 
 def timestamp_now() -> int:
-    return int(datetime.now(tz).timestamp())
+    return int(datetime_now().timestamp())
 
 
-def date_now_from_timestamp(timestamp: int) -> date:
-    return datetime.fromtimestamp(timestamp, tz).date()
+def datetime_from_timestamp(timestamp: int) -> datetime:
+    return datetime.fromtimestamp(timestamp, tz)
 
 
-def date_now() -> date:
-    return datetime.now(tz).date()
+def datetime_now() -> datetime:
+    return datetime.now(tz)
 
 
 def is_after_trading_hour(db, column_name: int) -> bool:
-    # End of KLSE's stock trading hours is next day 12am GMT+8
-    end_trading_datetime = (datetime.now(tz) + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
+    # End of KLSE's stock trading hours is 5:05pm GMT+8
+    end_trading_datetime = (datetime_now()).replace(
+        hour=17, minute=0, second=0, microsecond=0
     )
-    current_datetime = datetime.now(tz)
+    current_datetime = datetime_now()
     after_trading_hour = current_datetime >= end_trading_datetime
 
     query = db.query(func.max(column_name))

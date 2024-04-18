@@ -1,7 +1,5 @@
-from datetime import datetime
-
 import pandas as pd
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 
 import app.api.crud.utils as Utils
 from app.api.models.base import StockBase
@@ -39,7 +37,7 @@ async def update_stock(db) -> int:
                 stock_full_name=row["stock_full_name"],
                 category=row["category"],
                 is_shariah=row["is_shariah"],
-                updated_at=int(datetime.now().timestamp()),
+                updated_at=int(Utils.timestamp_now()),
             )
             db.add(stock)
         else:
@@ -47,7 +45,7 @@ async def update_stock(db) -> int:
             existing_stock.stock_name = row["stock_name"]
             existing_stock.category = row["category"]
             existing_stock.is_shariah = row["is_shariah"]
-            existing_stock.updated_at = int(datetime.now().timestamp())
+            existing_stock.updated_at = int(Utils.timestamp_now())
 
         counter += 1
 

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date
+from datetime import datetime
 
 import yfinance as yf
 from sqlalchemy import func
@@ -26,8 +26,8 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     if start_date:
         price_list_data = await get_price_list_data(
             stock_code,
-            start_date=Utils.date_now_from_timestamp(start_date),
-            end_date=Utils.date_now(),
+            start_date=Utils.datetime_from_timestamp(start_date),
+            end_date=Utils.datetime_now(),
         )
     else:
         price_list_data = await get_price_list_data(stock_code, period=period)
@@ -88,8 +88,8 @@ def get_quote_list_with_start_end_date(
 async def get_price_list_data(
     stock_code: str,
     period: str | None = "1y",
-    start_date: date | None = None,
-    end_date: date | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
 ) -> list[PriceList]:
     price_list = []
 
