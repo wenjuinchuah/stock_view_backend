@@ -36,15 +36,14 @@ async def update_stock(db) -> int:
                 stock_name=row["stock_name"],
                 stock_full_name=row["stock_full_name"],
                 category=row["category"],
-                is_shariah=row["is_shariah"],
                 updated_at=int(Utils.timestamp_now()),
             )
             db.add(stock)
         else:
             # update the stock if it exists
             existing_stock.stock_name = row["stock_name"]
+            existing_stock.stock_full_name = row["stock_full_name"]
             existing_stock.category = row["category"]
-            existing_stock.is_shariah = row["is_shariah"]
             existing_stock.updated_at = int(Utils.timestamp_now())
 
         counter += 1

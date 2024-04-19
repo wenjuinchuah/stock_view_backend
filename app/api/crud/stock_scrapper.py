@@ -54,7 +54,6 @@ def scrape_stock_list():
             .find_next_sibling("br")
             .next_sibling,
             "category": data[10],
-            "is_shariah": False,  # Temporary setting all to False
         }
         stock_list.append(stock)
 

@@ -53,8 +53,8 @@ async def fetch_db(
         stock_detail = StockDetails(
             stock_code=temp_matched_stock[0],
             stock_name=stock.stock_name,
-            open=quote_list[-1].open,
-            close=quote_list[-1].close,
+            close_price=quote_list[-1].close,
+            percentage_change=(quote_list[-1].close / quote_list[-2].close - 1) * 100,
         )
         return stock_detail
 

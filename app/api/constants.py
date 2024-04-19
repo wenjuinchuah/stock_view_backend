@@ -24,3 +24,12 @@ class Response:
 
 class Page:
     rows_per_page = 100
+
+
+class TimePeriod:
+    one_month = "1M"
+    three_months = "3M"
+    six_months = "6M"
+    one_year = "1Y"
+    five_years = "5Y"
+    all = "ALL"

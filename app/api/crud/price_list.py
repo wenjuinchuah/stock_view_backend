@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import yfinance as yf
 from sqlalchemy import func
@@ -7,6 +7,7 @@ from stock_indicators import Quote
 
 import app.api.crud.stock as StockCRUD
 import app.api.crud.utils as Utils
+from app.api.constants import TimePeriod
 from app.api.models.base import PriceListBase
 from app.api.models.price_list import PriceList
 
@@ -67,9 +68,23 @@ def get(stock_code: str, db):
     )
 
 
-def get_price_list(stock_code: str, db) -> list[PriceList]:
+def get_price_list(
+    stock_code: str, auto_adjust: bool, time_period: str, db
+) -> list[PriceList]:
     data_list = get(stock_code, db)
-    return [data.to_price_list() for data in data_list if data.stock_code == stock_code]
+    price_list = [
+        data.to_price_list() for data in data_list if data.stock_code == stock_code
+    ]
+
+    if price_list:
+        # Sort by datetime
+        price_list = sorted(price_list, key=lambda x: x.datetime)
+        # Adjust price list if auto_adjust is True
+        price_list = adjust_price_list(price_list) if auto_adjust else price_list
+
+        return price_list_time_period(price_list, time_period)
+
+    return []
 
 
 def get_quote_list_with_start_end_date(
@@ -121,3 +136,72 @@ async def get_price_list_data(
             )
         )
     return price_list
+
+
+def adjust_price_list(price_list: list[PriceList]) -> list[PriceList]:
+    for i in range(0, len(price_list)):
+        price_list[i].open = (
+            price_list[i].open * price_list[i].adj_close
+        ) / price_list[i].close
+
+        price_list[i].high = (
+            price_list[i].high * price_list[i].adj_close
+        ) / price_list[i].close
+
+        price_list[i].low = (price_list[i].low * price_list[i].adj_close) / price_list[
+            i
+        ].close
+
+        price_list[i].volume = (
+            price_list[i].volume / price_list[i].adj_close / price_list[i].close
+        )
+
+        price_list[i].datetime = price_list[i].datetime
+
+        price_list[i].close = price_list[i].adj_close
+
+    return price_list
+
+
+def price_list_time_period(
+    price_list: list[PriceList], time_period: str
+) -> list[PriceList]:
+    shift_month, shift_year = [0, 0]
+
+    match time_period:
+        case TimePeriod.one_month:
+            shift_month = 1
+        case TimePeriod.three_months:
+            shift_month = 3
+        case TimePeriod.six_months:
+            shift_month = 6
+        case TimePeriod.one_year:
+            shift_year = 1
+        case TimePeriod.five_years:
+            shift_year = 5
+        case TimePeriod.all:
+            return price_list
+        case _:
+            raise Exception("Invalid time period")
+
+    earliest_datetime = Utils.datetime_from_timestamp(price_list[-1].datetime)
+
+    if shift_year > 0:
+        earliest_datetime = earliest_datetime.replace(
+            year=earliest_datetime.year - shift_year
+        )
+    elif earliest_datetime.month > shift_month:
+        earliest_datetime = earliest_datetime.replace(
+            month=earliest_datetime.month - shift_month
+        )
+    else:
+        shift_month -= earliest_datetime.month
+        earliest_datetime = earliest_datetime.replace(
+            year=earliest_datetime.year - 1, month=12 - shift_month
+        )
+
+    return [
+        data
+        for data in price_list
+        if data.datetime >= int(earliest_datetime.timestamp())
+    ]

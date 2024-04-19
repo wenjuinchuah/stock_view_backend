@@ -14,7 +14,6 @@ class StockBase(Base):
     stock_name = Column(String(255))
     stock_full_name = Column(String(255))
     category = Column(String(255))
-    is_shariah = Column(Boolean)
     updated_at = Column(Integer)
 
 
@@ -23,7 +22,7 @@ class PriceListBase(Base):
 
     pricelist_id = Column(String(50), primary_key=True)
     open = Column(Double)
-    close = Column(Double, nullable=True)
+    close = Column(Double)
     adj_close = Column(Double)
     high = Column(Double)
     low = Column(Double)

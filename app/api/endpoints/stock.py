@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 import app.api.crud.price_list as PriceListCRUD
 import app.api.crud.stock as StockCRUD
-from app.api.constants import Response
+from app.api.constants import Response, TimePeriod
 from app.api.dependencies.database import SessionLocal
 
 
@@ -27,13 +27,18 @@ router = APIRouter(
 
 @router.get("/get", status_code=status.HTTP_200_OK)
 def get_stock_by_stock_code(
-    db: db_dependency, stock_code: str | None = None, auto_adjust: bool = True
+    db: db_dependency,
+    stock_code: str | None = None,
+    auto_adjust: bool = True,
+    time_period: str | None = None,
 ):
     try:
         if stock_code is None or stock_code == "":
             raise Exception("Stock code is required")
 
-        price_list = PriceListCRUD.get_price_list(stock_code, db)
+        price_list = PriceListCRUD.get_price_list(
+            stock_code, auto_adjust, time_period, db
+        )
 
         return Response.success(price_list)
     except Exception as e:
