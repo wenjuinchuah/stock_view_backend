@@ -1,9 +1,11 @@
 import time
 
+import asyncio
 from stock_indicators import indicators
 
 import app.api.crud.price_list as PriceListCRUD
 import app.api.crud.stock as StockCRUD
+import app.api.crud.utils as Utils
 from app.api.models.stock import StockDetails
 from app.api.models.stock_indicator import (
     Indicator,
@@ -14,12 +16,13 @@ from app.api.models.stock_indicator import (
 from app.api.models.stock_screener import StockScreener, StockScreenerResult
 
 
+# Fetch stock details from the database
 async def fetch_db(
     stock_code: str,
     results: StockScreenerResult,
     db,
 ) -> StockDetails | None:
-    quote_list = PriceListCRUD.get_quote_list_with_start_end_date(
+    quote_list = PriceListCRUD.get_quote_list(
         stock_code=stock_code,
         start_date=results.start_date,
         end_date=results.end_date,
@@ -29,23 +32,23 @@ async def fetch_db(
         return None
 
     temp_matched_stock = [stock_code]
+    tasks = []
+
     if results.stock_indicator.cci is not None:
-        if stock_code in temp_matched_stock:
-            is_matched = process_cci(results, quote_list, results.stock_indicator.cci)
-            if not is_matched:
-                temp_matched_stock = []
+        tasks.append(process_cci(results, quote_list, results.stock_indicator.cci))
 
     if results.stock_indicator.macd is not None:
-        if stock_code in temp_matched_stock:
-            is_matched = process_macd(results, quote_list, results.stock_indicator.macd)
-            if not is_matched:
-                temp_matched_stock = []
+        tasks.append(
+            process_macd(results, quote_list, results.stock_indicator.macd, stock_code)
+        )
 
     if results.stock_indicator.kdj is not None:
-        if stock_code in temp_matched_stock:
-            is_matched = process_kdj(results, quote_list, results.stock_indicator.kdj)
-            if not is_matched:
-                temp_matched_stock = []
+        tasks.append(process_kdj(results, quote_list, results.stock_indicator.kdj))
+
+    results = await asyncio.gather(*tasks)
+
+    if not all(results) and results is not None:
+        temp_matched_stock = []
 
     if temp_matched_stock:
         stock = StockCRUD.get_stock_details(db, stock_code)
@@ -61,6 +64,7 @@ async def fetch_db(
     return None
 
 
+# Screen stock based on the stock screener
 async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
     start_time = time.time()
     if (
@@ -71,29 +75,34 @@ async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult
         raise Exception("Invalid date range")
 
     stock_screener_result = StockScreenerResult(**stock_screener.model_dump())
-    all_stock_code = StockCRUD.get_all_stock_code(db)
+    offset = get_indicator_required_date_offset(stock_screener_result)
+    stock_screener_result.start_date -= offset
 
+    all_stock_code = StockCRUD.get_all_stock_code(db)
     start_index = (
         all_stock_code.index(stock_screener_result.last_stock_code) + 1
         if stock_screener_result.last_stock_code
         else 0
     )
 
-    matched_stock: list[StockDetails] = []
+    matched_stock = []
     for stock_code in all_stock_code[start_index:]:
-        if len(matched_stock) >= stock_screener_result.page_size:
-            stock_screener_result.last_stock_code = (
-                matched_stock[-1].stock_code if matched_stock else None
-            )
-            break
-        elif stock_code == all_stock_code[-1]:
-            stock_screener_result.last_stock_code = stock_code
-
         result = await fetch_db(stock_code, stock_screener_result, db)
-        if result:
+        if result is not None:
             matched_stock.append(result)
+            if (
+                stock_screener_result.last_stock_code is None
+                or stock_screener_result.last_stock_code < result.stock_code
+            ):
+                stock_screener_result.last_stock_code = result.stock_code
+            if len(matched_stock) >= stock_screener_result.page_size:
+                break
+
+    if not matched_stock or len(matched_stock) < stock_screener_result.page_size:
+        stock_screener_result.last_stock_code = all_stock_code[-1]
 
     stock_screener_result.add(matched_stock)
+    stock_screener_result.start_date += offset
 
     end_time = time.time()
     time_taken = end_time - start_time
@@ -102,13 +111,15 @@ async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult
     return stock_screener_result
 
 
-def process_cci(stock_screener, quotes, indicator) -> bool:
+# Process CCI indicator
+async def process_cci(stock_screener, quotes, indicator) -> bool:
     results = indicators.get_cci(quotes, indicator.time_period)
+    start_date = stock_screener.start_date - indicator.time_period * 86400
+
     filtered_results = [
         result
         for result in results
-        if result.date.timestamp()
-        >= stock_screener.start_date - indicator.time_period * 86400
+        if Utils.to_local_timestamp(result.date.timestamp()) >= start_date
     ]
 
     for result in filtered_results:
@@ -117,7 +128,7 @@ def process_cci(stock_screener, quotes, indicator) -> bool:
 
         within_date_range = (
             stock_screener.start_date
-            <= result.date.timestamp()
+            <= Utils.to_local_timestamp(result.date.timestamp())
             <= stock_screener.end_date
         )
         if within_date_range:
@@ -125,19 +136,19 @@ def process_cci(stock_screener, quotes, indicator) -> bool:
                 (
                     indicator.oversold is None
                     and indicator.overbought is not None
-                    and indicator.overbought < result.cci
+                    and indicator.overbought <= result.cci
                 )
                 or (
                     indicator.overbought is None
                     and indicator.oversold is not None
-                    and result.cci < indicator.oversold
+                    and result.cci <= indicator.oversold
                 )
                 or (
                     indicator.overbought is not None
                     and indicator.oversold is not None
                     and (
-                        indicator.overbought < result.cci
-                        or result.cci < indicator.oversold
+                        indicator.overbought <= result.cci
+                        or result.cci <= indicator.oversold
                     )
                 )
             ):
@@ -146,24 +157,18 @@ def process_cci(stock_screener, quotes, indicator) -> bool:
     return False
 
 
-def process_macd(stock_screener, quotes, indicator) -> bool:
+# Process MACD indicator
+async def process_macd(stock_screener, quotes, indicator, stock_code) -> bool:
     results = indicators.get_macd(
         quotes,
         indicator.fast_period,
         indicator.slow_period,
         indicator.signal_period,
     )
-    filtered_results = [
-        result
-        for result in results
-        if result.date.timestamp()
-        >= stock_screener.start_date
-        - 2 * (indicator.slow_period + indicator.signal_period) * 86400
-    ]
 
-    previous_macd, previous_signal = None, None
+    previous_macd, previous_signal, previous_histogram = None, None, None
 
-    for result in filtered_results:
+    for result in results:
         if not (result.macd and result.signal):
             continue
 
@@ -174,46 +179,68 @@ def process_macd(stock_screener, quotes, indicator) -> bool:
 
         within_date_range = (
             stock_screener.start_date
-            <= result.date.timestamp()
+            + get_indicator_required_date_offset(stock_screener)
+            <= Utils.to_local_timestamp(result.date.timestamp())
             <= stock_screener.end_date
         )
+
+        macd = round(result.macd, 4)
+        signal = round(result.signal, 4)
+        histogram = round(result.histogram, 4)
 
         if (
             within_date_range
             and previous_macd is not None
             and previous_signal is not None
         ):
+            histogram_to_positive = previous_histogram <= 0.0 < histogram
+            histogram_to_negative = previous_histogram > 0.0 >= histogram
+
             bearish = (
                 indicator.bearish
-                and previous_macd > previous_signal > result.signal > result.macd
+                and previous_macd >= previous_signal
+                and signal >= macd
+                and (histogram_to_negative or previous_histogram == histogram)
             )
             bullish = (
                 indicator.bullish
-                and previous_macd < previous_signal < result.signal < result.macd
+                and previous_signal >= previous_macd
+                and macd >= signal
+                and (histogram_to_positive or previous_histogram == histogram)
             )
 
+            print(
+                f"\n{stock_code}: {result.date} - {macd} - {signal} - {histogram} - {previous_macd} - {previous_signal} - {previous_histogram}"
+            )
+            print(
+                f"Bullish: {previous_signal >= previous_macd} - {macd >= signal} - {histogram_to_positive} - {previous_histogram == histogram}"
+            )
             if bearish or bullish:
                 return True
 
-        previous_macd = result.macd
-        previous_signal = result.signal
+        previous_macd = macd
+        previous_signal = signal
+        previous_histogram = histogram
 
     return False
 
 
-def process_kdj(stock_screener, quotes, indicator) -> bool:
+# Process KDJ indicator
+async def process_kdj(stock_screener, quotes, indicator) -> bool:
     results = indicators.get_stoch(
         quotes,
         indicator.loopback_period,
         indicator.signal_period,
         indicator.smooth_period,
     )
+    start_date = (
+        stock_screener.start_date
+        - (indicator.loopback_period + indicator.smooth_period) * 86400
+    )
     filtered_results = [
         result
         for result in results
-        if result.date.timestamp()
-        >= stock_screener.start_date
-        - (indicator.loopback_period + indicator.smooth_period) * 86400
+        if Utils.to_local_timestamp(result.date.timestamp()) >= start_date
     ]
 
     previous_k, previous_d = None, None
@@ -229,7 +256,7 @@ def process_kdj(stock_screener, quotes, indicator) -> bool:
 
         within_date_range = (
             stock_screener.start_date
-            <= result.date.timestamp()
+            <= Utils.to_local_timestamp(result.date.timestamp())
             <= stock_screener.end_date
         )
 
@@ -254,6 +281,7 @@ def process_kdj(stock_screener, quotes, indicator) -> bool:
     return False
 
 
+# Get all available rules
 def get_available_rules():
     return {
         Indicator.CCI: CCIIndicator(),
@@ -262,11 +290,12 @@ def get_available_rules():
     }
 
 
+# Get all available indicators and their respective rules
 def get_indicator_selector():
     return {
         Indicator.CCI: {
-            "overbought": "is greater than",
-            "oversold": "is less than",
+            "overbought": "is greater than (Overbought)",
+            "oversold": "is less than (Oversold)",
         },
         Indicator.MACD: {
             "bullish": "MACD above Signal (Bullish)",
@@ -277,3 +306,19 @@ def get_indicator_selector():
             "dead_cross": "Dead Cross (Bearish)",
         },
     }
+
+
+# Get the required date offset for the indicator
+def get_indicator_required_date_offset(results: StockScreenerResult) -> int:
+    indicator = results.stock_indicator
+
+    if indicator.macd is not None:
+        offset = indicator.macd.slow_period + indicator.macd.signal_period + 250
+    elif indicator.kdj is not None:
+        offset = indicator.kdj.loopback_period + indicator.kdj.smooth_period
+    elif indicator.cci is not None:
+        offset = indicator.cci.time_period
+    else:
+        offset = 90
+
+    return offset * 86400
