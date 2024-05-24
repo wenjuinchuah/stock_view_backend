@@ -1,5 +1,6 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 import yfinance as yf
 from sqlalchemy import func
@@ -12,6 +13,7 @@ from app.api.models.base import PriceListBase
 from app.api.models.price_list import PriceList
 
 
+# Fetch price list data for a stock code
 async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     print(f"Fetching price list data for {stock_code}  ", end="\r")
 
@@ -40,41 +42,48 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
         if not db.query(PriceListBase).filter_by(pricelist_id=data.pricelist_id).first()
     ]
 
+    # Bulk save new rows to the database
     db.bulk_save_objects(new_rows)
     db.commit()
 
     return price_list_data
 
 
+# Update price list data for all stock codes
 async def update(db) -> int:
     period = "max"
 
     if not Utils.is_after_trading_hour(db, PriceListBase.datetime):
         return 0
 
+    # Get all stock codes
     all_stock_code = StockCRUD.get_all_stock_code(db)
+
+    # Fetch price list data for all stock codes
     tasks = [fetch(stock_code, period, db) for stock_code in all_stock_code]
     completed_tasks = await asyncio.gather(*tasks)
 
     return sum(len(price_list_data) for price_list_data in completed_tasks)
 
 
-def get(stock_code: str, db):
+# Get price list data for a stock code
+def get(stock_code: str, db) -> list[PriceList]:
     print(f"Fetching price list data for {stock_code}  ", end="\r")
-    return (
+    price_list = (
         db.query(PriceListBase)
         .filter(PriceListBase.pricelist_id.startswith(stock_code))
         .all()
     )
+    return [
+        data for data in price_list if data.stock_code == stock_code and data.volume > 0
+    ]
 
 
+# Get price list data for a stock code with time period and auto adjust
 def get_price_list(
     stock_code: str, auto_adjust: bool, time_period: str, db
 ) -> list[PriceList]:
-    data_list = get(stock_code, db)
-    price_list = [
-        data.to_price_list() for data in data_list if data.stock_code == stock_code
-    ]
+    price_list = get(stock_code, db)
 
     if price_list:
         # Sort by datetime
@@ -87,19 +96,28 @@ def get_price_list(
     return []
 
 
-def get_quote_list_with_start_end_date(
-    stock_code: str, start_date: int, end_date: int, db
-) -> list[Quote]:
-    data_list = get(stock_code, db)
+# Get quote list for a stock code
+def get_quote_list(stock_code: str, start_date: int, end_date: int, db) -> list[Quote]:
+    price_list = get(stock_code, db)
 
-    # Return data 90 days before start_date to speed up the screening process
-    return [
-        data.to_quote()
-        for data in data_list
-        if start_date - (86400 * 90) <= data.datetime <= end_date
+    # Filter data before start_date to speed up the screening process
+    filtered_data: list[PriceList] = [
+        data
+        for data in price_list
+        if start_date <= Utils.to_local_timestamp(data.datetime) <= end_date
     ]
 
+    # Convert to quote list
+    with ThreadPoolExecutor() as executor:
+        return list(executor.map(_convert_to_quote, filtered_data))
 
+
+# Convert PriceList to Quote
+def _convert_to_quote(data: PriceList):
+    return data.to_quote()
+
+
+# Get price list data for a stock code
 async def get_price_list_data(
     stock_code: str,
     period: str | None = "1y",
@@ -108,7 +126,6 @@ async def get_price_list_data(
 ) -> list[PriceList]:
     price_list = []
 
-    # req = yf.Ticker(f"{stock_code}.KL")
     tickers = (f"{stock_code}.KL",)
 
     if start_date and end_date:
@@ -138,6 +155,7 @@ async def get_price_list_data(
     return price_list
 
 
+# Adjust price list data
 def adjust_price_list(price_list: list[PriceList]) -> list[PriceList]:
     for i in range(0, len(price_list)):
         price_list[i].open = (
@@ -163,6 +181,7 @@ def adjust_price_list(price_list: list[PriceList]) -> list[PriceList]:
     return price_list
 
 
+# Filter price list data by time period
 def price_list_time_period(
     price_list: list[PriceList], time_period: str
 ) -> list[PriceList]:

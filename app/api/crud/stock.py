@@ -6,6 +6,7 @@ from app.api.models.base import StockBase
 import app.api.crud.stock_scrapper as StockScrapper
 
 
+# Update stock listing
 async def update_stock(db) -> int:
     counter = 0
 
@@ -36,7 +37,7 @@ async def update_stock(db) -> int:
                 stock_name=row["stock_name"],
                 stock_full_name=row["stock_full_name"],
                 category=row["category"],
-                updated_at=int(Utils.timestamp_now()),
+                updated_at=Utils.timestamp_now(),
             )
             db.add(stock)
         else:
@@ -44,7 +45,7 @@ async def update_stock(db) -> int:
             existing_stock.stock_name = row["stock_name"]
             existing_stock.stock_full_name = row["stock_full_name"]
             existing_stock.category = row["category"]
-            existing_stock.updated_at = int(Utils.timestamp_now())
+            existing_stock.updated_at = Utils.timestamp_now()
 
         counter += 1
 
@@ -54,15 +55,18 @@ async def update_stock(db) -> int:
     return counter
 
 
+# Get all stock codes
 def get_all_stock_code(db) -> list[str]:
     all_stock_code = db.query(StockBase.stock_code).all()
     return [stock_code[0] for stock_code in all_stock_code]
 
 
+# Get stock details
 def get_stock_details(db, stock_code: str) -> StockBase:
     return db.query(StockBase).filter(StockBase.stock_code == stock_code).first()
 
 
+# Get matched stock details
 def get_matched_stock_details(db, query: str) -> list[StockBase]:
     return (
         db.query(StockBase)

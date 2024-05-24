@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Double, Boolean, BigInteger
+from sqlalchemy import Column, Integer, String, Double, BigInteger
 from stock_indicators import Quote
 
 from app.api.dependencies.database import Base
 from app.api.models.price_list import PriceList
+import app.api.crud.utils as Utils
 
 
 class StockBase(Base):
@@ -45,10 +46,10 @@ class PriceListBase(Base):
 
     def to_quote(self):
         return Quote(
-            date=datetime.fromtimestamp(self.datetime),
-            open=self.open,
-            high=self.high,
-            low=self.low,
-            close=self.adj_close,
-            volume=self.volume,
+            date=Utils.datetime_from_timestamp(self.datetime),
+            open=round(self.open, 3),
+            high=round(self.high, 3),
+            low=round(self.low, 3),
+            close=round(self.adj_close, 3),  # Use adjusted close price
+            volume=float(self.volume),
         )

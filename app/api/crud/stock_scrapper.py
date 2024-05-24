@@ -6,6 +6,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 
 
+# Scrape stock list from i3Investor Screener
 def scrape_stock_list():
     url = "https://klse.i3investor.com/wapi/web/stock/listing/datatables"
     headers = {
