@@ -29,7 +29,7 @@ class KDJIndicator(BaseModel):
     signal_period: int | None = 3
     smooth_period: int | None = 3
     golden_cross: bool | None = False
-    dead_cross: bool | None = False
+    death_cross: bool | None = False
 
 
 class StockIndicator(BaseModel):

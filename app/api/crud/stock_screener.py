@@ -1,5 +1,3 @@
-import time
-
 import asyncio
 from stock_indicators import indicators
 
@@ -38,9 +36,7 @@ async def fetch_db(
         tasks.append(process_cci(results, quote_list, results.stock_indicator.cci))
 
     if results.stock_indicator.macd is not None:
-        tasks.append(
-            process_macd(results, quote_list, results.stock_indicator.macd, stock_code)
-        )
+        tasks.append(process_macd(results, quote_list, results.stock_indicator.macd))
 
     if results.stock_indicator.kdj is not None:
         tasks.append(process_kdj(results, quote_list, results.stock_indicator.kdj))
@@ -66,7 +62,6 @@ async def fetch_db(
 
 # Screen stock based on the stock screener
 async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
-    start_time = time.time()
     if (
         stock_screener.start_date > stock_screener.end_date
         or stock_screener.start_date == 0
@@ -103,10 +98,6 @@ async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult
 
     stock_screener_result.add(matched_stock)
     stock_screener_result.start_date += offset
-
-    end_time = time.time()
-    time_taken = end_time - start_time
-    print(f"\nTime taken: {time_taken:.2f} seconds")
 
     return stock_screener_result
 
@@ -158,7 +149,7 @@ async def process_cci(stock_screener, quotes, indicator) -> bool:
 
 
 # Process MACD indicator
-async def process_macd(stock_screener, quotes, indicator, stock_code) -> bool:
+async def process_macd(stock_screener, quotes, indicator) -> bool:
     results = indicators.get_macd(
         quotes,
         indicator.fast_period,
@@ -208,13 +199,6 @@ async def process_macd(stock_screener, quotes, indicator, stock_code) -> bool:
                 and macd >= signal
                 and (histogram_to_positive or previous_histogram == histogram)
             )
-
-            print(
-                f"\n{stock_code}: {result.date} - {macd} - {signal} - {histogram} - {previous_macd} - {previous_signal} - {previous_histogram}"
-            )
-            print(
-                f"Bullish: {previous_signal >= previous_macd} - {macd >= signal} - {histogram_to_positive} - {previous_histogram == histogram}"
-            )
             if bearish or bullish:
                 return True
 
@@ -249,9 +233,9 @@ async def process_kdj(stock_screener, quotes, indicator) -> bool:
         if not result.k or not result.d or not result.j:
             continue
 
-        if indicator.golden_cross == indicator.dead_cross:
+        if indicator.golden_cross == indicator.death_cross:
             raise Exception(
-                "Invalid KDJ indicator, please specify either golden cross or dead cross."
+                "Invalid KDJ indicator, please specify either golden cross or death cross."
             )
 
         within_date_range = (
@@ -266,13 +250,13 @@ async def process_kdj(stock_screener, quotes, indicator) -> bool:
                 and result.d < result.k
                 and previous_k < previous_d < result.d < result.j
             )
-            dead_cross_condition = (
-                indicator.dead_cross
+            death_cross_condition = (
+                indicator.death_cross
                 and result.d > result.k
                 and previous_k > previous_d > result.d > result.j
             )
 
-            if golden_cross_condition or dead_cross_condition:
+            if golden_cross_condition or death_cross_condition:
                 return True
 
         previous_k = result.k
@@ -303,7 +287,7 @@ def get_indicator_selector():
         },
         Indicator.KDJ: {
             "golden_cross": "Golden Cross (Bullish)",
-            "dead_cross": "Dead Cross (Bearish)",
+            "death_cross": "Death Cross (Bearish)",
         },
     }
 

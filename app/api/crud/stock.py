@@ -10,10 +10,6 @@ import app.api.crud.stock_scrapper as StockScrapper
 async def update_stock(db) -> int:
     counter = 0
 
-    # Condition check
-    if not Utils.is_after_trading_hour(db, StockBase.updated_at):
-        return counter
-
     # Scrape stock listing from i3Investor Screener
     StockScrapper.scrape_stock_list()
 
