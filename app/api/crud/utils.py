@@ -29,36 +29,31 @@ def is_after_trading_hour(db, column_name: int) -> bool:
         hour=17, minute=0, second=0, microsecond=0
     )
     current_datetime = datetime_now()
-    query = db.query(func.max(column_name))
-    data_timestamp = query.scalar()
+    data_timestamp = db.query(func.max(column_name)).scalar()
     data_datetime = (
         datetime.fromtimestamp(data_timestamp, tz) if data_timestamp else None
+    )
+    yesterday = current_datetime - timedelta(days=1)
+    data_up_to_date = (
+        data_datetime.date() == current_datetime.date()
+        if current_datetime >= end_trading_datetime
+        and not is_holiday(current_datetime.date())
+        else data_datetime.date() == yesterday.date()
     )
 
     # Check if data_datetime is None
     if data_datetime is None:
+        raise Exception("Data is not available")
+
+    # Check if the current date is a weekend or holiday and data is up-to-date
+    if (
+        current_datetime.weekday() >= 5 or is_holiday(current_datetime.date())
+    ) and data_up_to_date:
         return False
 
-    # Check if data_datetime is from the previous day
-    yesterday = current_datetime - timedelta(days=1)
-    if data_datetime.date() == yesterday.date():
-        # If it's after trading hours and yesterday was a weekday, return True
-        if (
-            current_datetime > end_trading_datetime
-            and yesterday.weekday() < 5
-            and not is_holiday(yesterday.date())
-        ):
-            return True
-
-    # If data_datetime is not from the previous day, return True regardless of the current time
-    elif data_datetime.date() != current_datetime.date() and not is_holiday(
-        yesterday.date()
-    ):
-        return True
-
-    # If it's the weekend, return False
-    if current_datetime.weekday() in [5, 6]:  # Saturday or Sunday
-        return False
+    # Check if the current date is a holiday and data is not up-to-date
+    if is_holiday(yesterday.date()) and not data_up_to_date:
+        return True if current_datetime >= end_trading_datetime else False
 
     return False
 
@@ -90,7 +85,5 @@ def to_local_datetime_from_timestamp(timestamp: int) -> datetime:
 
 
 def is_holiday(holiday_date: date) -> bool:
-    print(f"Checking if {holiday_date} is a holiday")
     my_holidays = holidays.country_holidays("MY")
-    print(f"is_holiday: {holiday_date in my_holidays}")
     return holiday_date in my_holidays

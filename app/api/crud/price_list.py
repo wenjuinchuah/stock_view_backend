@@ -1,4 +1,6 @@
 import asyncio
+import concurrent
+import os
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
@@ -52,9 +54,6 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
 # Update price list data for all stock codes
 async def update(db) -> int:
     period = "max"
-
-    if not Utils.is_after_trading_hour(db, PriceListBase.datetime):
-        return 0
 
     # Get all stock codes
     all_stock_code = StockCRUD.get_all_stock_code(db)
@@ -224,3 +223,53 @@ def price_list_time_period(
         for data in price_list
         if data.datetime >= int(earliest_datetime.timestamp())
     ]
+
+
+def is_data_available(db) -> bool:
+    return db.query(db.query(PriceListBase).exists()).scalar()
+
+
+def parse_sql_file(path, db):
+    if os.path.isfile(path):
+        with open(path, "r") as file:
+            data_chunk = []
+            for line in file:
+                if line.startswith("INSERT INTO"):
+                    data = line.split("VALUES ")[1].split(";")[0].split(",")
+                    for i in range(0, len(data), 9):
+                        data_chunk.append(
+                            PriceList(
+                                pricelist_id=data[i].removeprefix("("),
+                                open=float(data[i + 1]),
+                                close=float(data[i + 2]),
+                                adj_close=float(data[i + 3]),
+                                high=float(data[i + 4]),
+                                low=float(data[i + 5]),
+                                volume=int(data[i + 6]),
+                                datetime=int(data[i + 7]),
+                                stock_code=data[i + 8].removesuffix(")"),
+                            ).to_base()
+                        )
+                        if len(data_chunk) >= 1000:
+                            yield data_chunk
+                            data_chunk = []
+            if data_chunk:
+                yield data_chunk
+    else:
+        raise Exception("Price list data file not found")
+
+
+# Initialize price list data from SQL file
+async def initialize(db) -> int:
+    path = "app/assets/price_list.sql"
+    counter = 0
+
+    # Use a ThreadPoolExecutor to run the database operations in a separate thread
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        loop = asyncio.get_event_loop()
+        for data_chunk in parse_sql_file(path, db):
+            counter += len(data_chunk)
+            await loop.run_in_executor(executor, db.bulk_save_objects, data_chunk)
+            await loop.run_in_executor(executor, db.commit)
+
+    return counter

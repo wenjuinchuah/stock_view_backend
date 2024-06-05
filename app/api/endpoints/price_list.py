@@ -1,4 +1,5 @@
 from typing import Annotated
+from asyncio import Lock
 
 from fastapi import APIRouter, status, Depends
 from sqlalchemy.orm import Session
@@ -8,6 +9,9 @@ import app.api.crud.utils as Utils
 from app.api.constants import Response
 from app.api.dependencies.database import SessionLocal
 from app.api.models.base import PriceListBase
+
+
+lock = Lock()
 
 
 def get_db():
@@ -29,16 +33,40 @@ router = APIRouter(
 @router.post("/update", status_code=status.HTTP_200_OK)
 async def update_price_list(db: db_dependency):
     try:
-        counter = await crud.update(db)
+        if lock.locked():
+            raise Exception("Price list update is in progress, please try again later!")
+        else:
+            async with lock:
+                counter = await crud.update(db)
+                return Response.success(
+                    f"{counter} price list added/updated successfully"
+                )
+    except Exception as e:
+        return Response.error(e)
+
+
+@router.get("/update/initialize", status_code=status.HTTP_200_OK)
+async def initialize_update_price_list(db: db_dependency):
+    try:
+        counter = await crud.initialize(db)
         return Response.success(f"{counter} price list added/updated successfully")
     except Exception as e:
         return Response.error(e)
 
 
-@router.get("/is_after_trading_hour/get", status_code=status.HTTP_200_OK)
+@router.get("/is_after_trading_hour", status_code=status.HTTP_200_OK)
 def is_after_trading_hour(db: db_dependency):
     try:
         is_valid = Utils.is_after_trading_hour(db, PriceListBase.datetime)
         return Response.success(is_valid)
+    except Exception as e:
+        return Response.error(e)
+
+
+@router.get("/is_data_available", status_code=status.HTTP_200_OK)
+def is_data_available(db: db_dependency):
+    try:
+        is_available = crud.is_data_available(db)
+        return Response.success(is_available)
     except Exception as e:
         return Response.error(e)
