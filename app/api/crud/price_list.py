@@ -37,9 +37,8 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     new_rows = [
         data.to_base()
         for data in price_list_data
-        if not PriceListBase.get(data.pricelist_id)
+        if not PriceListBase.get(db, data.pricelist_id)
     ]
-
     # Bulk save new rows to the database
     PriceListBase.bulk_update(db, new_rows)
 
