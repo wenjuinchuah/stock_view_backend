@@ -64,7 +64,9 @@ def get(stock_code: str, db) -> list[PriceList]:
     print(f"Fetching price list data for {stock_code}  ", end="\r")
     price_list = PriceListBase.get_all_by_stock_code(db, stock_code)
     return [
-        data for data in price_list if data.stock_code == stock_code and data.volume > 0
+        data.to_price_list()
+        for data in price_list
+        if data.stock_code == stock_code and data.volume > 0
     ]
 
 
@@ -90,20 +92,11 @@ def get_quote_list(stock_code: str, start_date: int, end_date: int, db) -> list[
     price_list = get(stock_code, db)
 
     # Filter data before start_date to speed up the screening process
-    filtered_data: list[PriceList] = [
-        data
+    return [
+        data.to_base().to_quote()
         for data in price_list
         if start_date <= Utils.to_local_timestamp(data.timestamp) <= end_date
     ]
-
-    # Convert to quote list
-    with ThreadPoolExecutor() as executor:
-        return list(executor.map(_convert_to_quote, filtered_data))
-
-
-# Convert PriceList to Quote
-def _convert_to_quote(data: PriceList):
-    return data.to_quote()
 
 
 # Get price list data for a stock code

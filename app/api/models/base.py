@@ -64,13 +64,13 @@ class PriceListBase(Base):
             high=self.high,
             low=self.low,
             volume=self.volume,
-            datetime=self.datetime,
+            timestamp=self.timestamp,
             stock_code=self.stock_code,
         )
 
     def to_quote(self) -> Quote:
         return Quote(
-            date=Utils.timestamp_to_datetime(self.datetime),
+            date=Utils.timestamp_to_datetime(self.timestamp),
             open=round(self.open, 3),
             high=round(self.high, 3),
             low=round(self.low, 3),
