@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, date
+from app.api.models.base import PriceListBase
 
 import holidays
 import pytz
-from sqlalchemy import func
+
 
 tz = pytz.timezone("Asia/Kuala_Lumpur")
 
@@ -13,7 +14,7 @@ def timestamp_now() -> int:
 
 
 # Get the current datetime from timestamp
-def datetime_from_timestamp(timestamp: int) -> datetime:
+def timestamp_to_datetime(timestamp: int) -> datetime:
     return datetime.fromtimestamp(timestamp, tz)
 
 
@@ -23,13 +24,13 @@ def datetime_now() -> datetime:
 
 
 # Check if it's after trading hours
-def is_after_trading_hour(db, column_name: int) -> bool:
+def is_after_trading_hour(db) -> bool:
     # End of KLSE's stock trading hours is 5:05pm GMT+8
     end_trading_datetime = (datetime_now()).replace(
         hour=17, minute=0, second=0, microsecond=0
     )
     current_datetime = datetime_now()
-    data_timestamp = db.query(func.max(column_name)).scalar()
+    data_timestamp = PriceListBase.get_latest_timestamp(db)
     data_datetime = (
         datetime.fromtimestamp(data_timestamp, tz) if data_timestamp else None
     )
@@ -81,7 +82,7 @@ def to_local_timestamp(timestamp: float) -> int:
 
 def to_local_datetime_from_timestamp(timestamp: int) -> datetime:
     new_timestamp = to_local_timestamp(timestamp)
-    return datetime_from_timestamp(new_timestamp)
+    return timestamp_to_datetime(new_timestamp)
 
 
 def is_holiday(holiday_date: date) -> bool:

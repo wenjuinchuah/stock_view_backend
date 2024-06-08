@@ -9,7 +9,7 @@ class PriceList(BaseModel):
     high: float
     low: float
     volume: int
-    datetime: int
+    timestamp: int
     stock_code: str
 
     def to_base(self):
@@ -23,6 +23,6 @@ class PriceList(BaseModel):
             high=self.high,
             low=self.low,
             volume=self.volume,
-            datetime=self.datetime,
+            timestamp=self.timestamp,
             stock_code=self.stock_code,
         )

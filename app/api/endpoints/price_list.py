@@ -57,7 +57,7 @@ async def initialize_update_price_list(db: db_dependency):
 @router.get("/is_after_trading_hour", status_code=status.HTTP_200_OK)
 def is_after_trading_hour(db: db_dependency):
     try:
-        is_valid = Utils.is_after_trading_hour(db, PriceListBase.datetime)
+        is_valid = Utils.is_after_trading_hour(db)
         return Response.success(is_valid)
     except Exception as e:
         return Response.error(e)

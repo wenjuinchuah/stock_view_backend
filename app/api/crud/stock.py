@@ -20,11 +20,7 @@ async def update_stock(db) -> int:
     data.replace({pd.NA: None, pd.NaT: None}, inplace=True)
 
     for index, row in data.iterrows():
-        existing_stock = (
-            db.query(StockBase)
-            .filter(StockBase.stock_code == row["stock_code"])
-            .first()
-        )
+        existing_stock = StockBase.get(db, row["stock_code"])
 
         if not existing_stock:
             # insert all the stocks into the database if it does not exist
@@ -35,7 +31,7 @@ async def update_stock(db) -> int:
                 category=row["category"],
                 updated_at=Utils.timestamp_now(),
             )
-            db.add(stock)
+            StockBase.update(db, stock)
         else:
             # update the stock if it exists
             existing_stock.stock_name = row["stock_name"]
@@ -45,32 +41,20 @@ async def update_stock(db) -> int:
 
         counter += 1
 
-    # commit changes to the database
-    db.commit()
-
     return counter
 
 
 # Get all stock codes
 def get_all_stock_code(db) -> list[str]:
-    all_stock_code = db.query(StockBase.stock_code).all()
-    return [stock_code[0] for stock_code in all_stock_code]
+    all_stocks = StockBase.get_all(db)
+    return [stock.stock_code for stock in all_stocks]
 
 
 # Get stock details
 def get_stock_details(db, stock_code: str) -> StockBase:
-    return db.query(StockBase).filter(StockBase.stock_code == stock_code).first()
+    return StockBase.get(db, stock_code)
 
 
 # Get matched stock details
 def get_matched_stock_details(db, query: str) -> list[StockBase]:
-    return (
-        db.query(StockBase)
-        .filter(
-            or_(
-                StockBase.stock_name.startswith(query),
-                StockBase.stock_code.startswith(query),
-            )
-        )
-        .all()
-    )
+    return StockBase.search_by_code_and_name(db, query)

@@ -30,7 +30,7 @@ def get_stock_by_stock_code(
     db: db_dependency,
     stock_code: str | None = None,
     auto_adjust: bool = True,
-    time_period: str | None = None,
+    time_period: str | None = TimePeriod.one_year,
 ):
     try:
         if stock_code is None or stock_code == "":

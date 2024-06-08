@@ -22,16 +22,12 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     price_list_data = []
 
     # Get price list data
-    latest_date = (
-        db.query(func.max(PriceListBase.datetime))
-        .filter(PriceListBase.pricelist_id.startswith(stock_code))
-        .scalar()
-    )
-    start_date = latest_date + 86400 if latest_date else None
-    if start_date:
+    latest_timestamp = PriceListBase.get_latest_timestamp_by_stock_code(db, stock_code)
+    start_timestamp = latest_timestamp + 86400 if latest_timestamp else None
+    if start_timestamp:
         price_list_data = await get_price_list_data(
             stock_code,
-            start_date=Utils.datetime_from_timestamp(start_date),
+            start_date=Utils.timestamp_to_datetime(start_timestamp),
             end_date=Utils.datetime_now(),
         )
     else:
@@ -41,12 +37,11 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
     new_rows = [
         data.to_base()
         for data in price_list_data
-        if not db.query(PriceListBase).filter_by(pricelist_id=data.pricelist_id).first()
+        if not PriceListBase.get(data.pricelist_id)
     ]
 
     # Bulk save new rows to the database
-    db.bulk_save_objects(new_rows)
-    db.commit()
+    PriceListBase.bulk_update(db, new_rows)
 
     return price_list_data
 
@@ -68,11 +63,7 @@ async def update(db) -> int:
 # Get price list data for a stock code
 def get(stock_code: str, db) -> list[PriceList]:
     print(f"Fetching price list data for {stock_code}  ", end="\r")
-    price_list = (
-        db.query(PriceListBase)
-        .filter(PriceListBase.pricelist_id.startswith(stock_code))
-        .all()
-    )
+    price_list = PriceListBase.get_all_by_stock_code(db, stock_code)
     return [
         data for data in price_list if data.stock_code == stock_code and data.volume > 0
     ]
@@ -85,8 +76,8 @@ def get_price_list(
     price_list = get(stock_code, db)
 
     if price_list:
-        # Sort by datetime
-        price_list = sorted(price_list, key=lambda x: x.datetime)
+        # Sort by timestamp
+        price_list = sorted(price_list, key=lambda x: x.timestamp)
         # Adjust price list if auto_adjust is True
         price_list = adjust_price_list(price_list) if auto_adjust else price_list
 
@@ -103,7 +94,7 @@ def get_quote_list(stock_code: str, start_date: int, end_date: int, db) -> list[
     filtered_data: list[PriceList] = [
         data
         for data in price_list
-        if start_date <= Utils.to_local_timestamp(data.datetime) <= end_date
+        if start_date <= Utils.to_local_timestamp(data.timestamp) <= end_date
     ]
 
     # Convert to quote list
@@ -147,7 +138,7 @@ async def get_price_list_data(
                 high=round(row["High"], 5),
                 low=round(row["Low"], 5),
                 volume=int(row["Volume"]),
-                datetime=timestamp,
+                timestamp=timestamp,
                 stock_code=stock_code,
             )
         )
@@ -173,7 +164,7 @@ def adjust_price_list(price_list: list[PriceList]) -> list[PriceList]:
             price_list[i].volume / price_list[i].adj_close / price_list[i].close
         )
 
-        price_list[i].datetime = price_list[i].datetime
+        price_list[i].timestamp = price_list[i].timestamp
 
         price_list[i].close = price_list[i].adj_close
 
@@ -202,7 +193,7 @@ def price_list_time_period(
         case _:
             raise Exception("Invalid time period")
 
-    earliest_datetime = Utils.datetime_from_timestamp(price_list[-1].datetime)
+    earliest_datetime = Utils.timestamp_to_datetime(price_list[-1].timestamp)
 
     if shift_year > 0:
         earliest_datetime = earliest_datetime.replace(
@@ -221,12 +212,12 @@ def price_list_time_period(
     return [
         data
         for data in price_list
-        if data.datetime >= int(earliest_datetime.timestamp())
+        if data.timestamp >= int(earliest_datetime.timestamp())
     ]
 
 
 def is_data_available(db) -> bool:
-    return db.query(db.query(PriceListBase).exists()).scalar()
+    return PriceListBase.exists(db)
 
 
 def parse_sql_file(path, db):
@@ -259,7 +250,7 @@ def parse_sql_file(path, db):
         raise Exception("Price list data file not found")
 
 
-# Initialize price list data from SQL file
+# TODO: Initialize price list data from SQL file (Temporary solutions)
 async def initialize(db) -> int:
     path = "app/assets/price_list.sql"
     counter = 0
