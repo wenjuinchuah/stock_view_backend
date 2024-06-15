@@ -124,24 +124,13 @@ async def process_cci(stock_screener, quotes, indicator) -> bool:
         )
         if within_date_range:
             if (
-                (
-                    indicator.oversold is None
-                    and indicator.overbought is not None
-                    and indicator.overbought <= result.cci
-                )
-                or (
-                    indicator.overbought is None
-                    and indicator.oversold is not None
-                    and result.cci <= indicator.oversold
-                )
-                or (
-                    indicator.overbought is not None
-                    and indicator.oversold is not None
-                    and (
-                        indicator.overbought <= result.cci
-                        or result.cci <= indicator.oversold
-                    )
-                )
+                indicator.oversold is None
+                and indicator.overbought is not None
+                and indicator.overbought <= result.cci
+            ) or (
+                indicator.overbought is None
+                and indicator.oversold is not None
+                and result.cci <= indicator.oversold
             ):
                 return True
 
@@ -303,6 +292,6 @@ def get_indicator_required_date_offset(results: StockScreenerResult) -> int:
     elif indicator.cci is not None:
         offset = indicator.cci.time_period
     else:
-        offset = 90
+        offset = 0
 
     return offset * 86400

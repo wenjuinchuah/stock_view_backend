@@ -47,10 +47,8 @@ def is_after_trading_hour(db) -> bool:
         raise Exception("Data is not available")
 
     # Check if the current date is a weekend or holiday and data is up-to-date
-    if (
-        current_datetime.weekday() >= 5 or is_holiday(current_datetime.date())
-    ) and data_up_to_date:
-        return False
+    if current_datetime.weekday() >= 5 or is_holiday(current_datetime.date()):
+        return True if not data_up_to_date else False
 
     # Check if the current date is a holiday and data is not up-to-date
     if is_holiday(yesterday.date()) and not data_up_to_date:
