@@ -57,7 +57,8 @@ def is_after_trading_hour(db) -> bool:
     if is_holiday(yesterday.date()) and not data_up_to_date:
         return True if current_datetime >= end_trading_datetime else False
 
-    return False
+    # Return True if data is not up-to-date
+    return not data_up_to_date
 
 
 # Convert GMT+0 timestamp to GMT+8 timestamp

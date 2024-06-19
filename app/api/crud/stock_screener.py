@@ -311,6 +311,7 @@ def is_valid_date_range(start_date: int, end_date: int) -> bool:
         (end_datetime.weekday() >= 5 and start_datetime.weekday() >= 5)
         or (start_datetime.weekday() >= 5 and Utils.is_holiday(end_datetime))
         or (end_datetime.weekday() >= 5 and Utils.is_holiday(start_datetime))
+        or (Utils.is_holiday(start_datetime) and Utils.is_holiday(end_datetime))
     ):
         return False
 
