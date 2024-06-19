@@ -13,6 +13,10 @@ def timestamp_now() -> int:
     return int(datetime_now().timestamp())
 
 
+def datetime_to_timestamp(date_time: datetime) -> int:
+    return date_time.timestamp().__int__()
+
+
 # Get the current datetime from timestamp
 def timestamp_to_datetime(timestamp: int) -> datetime:
     return datetime.fromtimestamp(timestamp, tz)
@@ -31,15 +35,14 @@ def is_after_trading_hour(db) -> bool:
     )
     current_datetime = datetime_now()
     data_timestamp = PriceListBase.get_latest_timestamp(db)
-    data_datetime = (
-        datetime.fromtimestamp(data_timestamp, tz) if data_timestamp else None
-    )
+    data_datetime = timestamp_to_datetime(data_timestamp) if data_timestamp else None
     yesterday = current_datetime - timedelta(days=1)
     data_up_to_date = (
         data_datetime.date() == current_datetime.date()
         if current_datetime >= end_trading_datetime
         and not is_holiday(current_datetime.date())
         else data_datetime.date() == yesterday.date()
+        or data_datetime.date() == (current_datetime.date() - timedelta(days=2))
     )
 
     # Check if data_datetime is None
@@ -53,21 +56,6 @@ def is_after_trading_hour(db) -> bool:
     # Check if the current date is a holiday and data is not up-to-date
     if is_holiday(yesterday.date()) and not data_up_to_date:
         return True if current_datetime >= end_trading_datetime else False
-
-    return False
-
-
-# Check if the data is up-to-date
-def db_data_days_diff(days: int, data_datetime: datetime | None) -> bool:
-    if data_datetime:
-        current_date = datetime_now().date()
-        data_date = data_datetime.date()
-
-        while data_date < current_date:
-            if data_date.weekday() < 5:  # Monday to Friday
-                days -= 1
-            data_date += timedelta(days=1)
-        return days == 0
 
     return False
 

@@ -1,4 +1,6 @@
 import asyncio
+from datetime import timedelta
+
 from stock_indicators import indicators
 
 import app.api.crud.price_list as PriceListCRUD
@@ -53,7 +55,10 @@ async def fetch_db(
             stock_code=temp_matched_stock[0],
             stock_name=stock.stock_name,
             close_price=quote_list[-1].close,
-            percentage_change=(quote_list[-1].close / quote_list[-2].close - 1) * 100,
+            percentage_change=(
+                quote_list[-1].close / quote_list[len(quote_list) - 2].close - 1
+            )
+            * 100,
         )
         return stock_detail
 
@@ -62,14 +67,11 @@ async def fetch_db(
 
 # Screen stock based on the stock screener
 async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult:
-    if (
-        stock_screener.start_date > stock_screener.end_date
-        or stock_screener.start_date == 0
-        or stock_screener.end_date == 0
-    ):
-        raise Exception("Invalid date range")
-
     stock_screener_result = StockScreenerResult(**stock_screener.model_dump())
+
+    if not is_valid_date_range(stock_screener.start_date, stock_screener.end_date):
+        return stock_screener_result
+
     offset = get_indicator_required_date_offset(stock_screener_result)
     stock_screener_result.start_date -= offset
 
@@ -295,3 +297,21 @@ def get_indicator_required_date_offset(results: StockScreenerResult) -> int:
         offset = 0
 
     return offset * 86400
+
+
+def is_valid_date_range(start_date: int, end_date: int) -> bool:
+    if start_date > end_date or start_date == 0 or end_date == 0:
+        raise Exception("Invalid date range")
+
+    start_datetime = Utils.timestamp_to_datetime(start_date)
+    end_datetime = Utils.timestamp_to_datetime(end_date)
+
+    # Check if the date range is within 1 day and is on weekends or holidays
+    if end_datetime - start_datetime <= timedelta(days=1) and (
+        (end_datetime.weekday() >= 5 and start_datetime.weekday() >= 5)
+        or (start_datetime.weekday() >= 5 and Utils.is_holiday(end_datetime))
+        or (end_datetime.weekday() >= 5 and Utils.is_holiday(start_datetime))
+    ):
+        return False
+
+    return start_date <= end_date

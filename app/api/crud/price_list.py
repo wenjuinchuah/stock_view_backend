@@ -154,7 +154,7 @@ def adjust_price_list(price_list: list[PriceList]) -> list[PriceList]:
 
         price_list[i].volume = (
             price_list[i].volume / price_list[i].adj_close / price_list[i].close
-        )
+        ).__int__()
 
         price_list[i].timestamp = price_list[i].timestamp
 
@@ -204,7 +204,7 @@ def price_list_time_period(
     return [
         data
         for data in price_list
-        if data.timestamp >= int(earliest_datetime.timestamp())
+        if data.timestamp >= Utils.datetime_to_timestamp(earliest_datetime)
     ]
 
 
