@@ -4,7 +4,7 @@ services:
   frontend:
     image: stock_view_frontend
     build:
-      context: ~/projects/stock_view_frontend
+      context: ../stock_view_frontend
     ports:
       - "8080:8080"
     depends_on:
@@ -13,7 +13,7 @@ services:
   backend:
     image: stock_view_backend
     build:
-      context: ~/projects/stock_view_backend
+      context: ../stock_view_backend
     ports:
       - "8000:8000"
     depends_on:
