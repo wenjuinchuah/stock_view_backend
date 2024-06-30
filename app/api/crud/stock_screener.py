@@ -43,9 +43,9 @@ async def fetch_db(
     if results.stock_indicator.kdj is not None:
         tasks.append(process_kdj(results, quote_list, results.stock_indicator.kdj))
 
-    results = await asyncio.gather(*tasks)
+    results_list = await asyncio.gather(*tasks)
 
-    if not all(results) and results is not None:
+    if any(result is None for result in results_list):
         temp_matched_stock = []
 
     if temp_matched_stock:
@@ -59,6 +59,7 @@ async def fetch_db(
                 quote_list[-1].close / quote_list[len(quote_list) - 2].close - 1
             )
             * 100,
+            matched_timestamp=max(results_list) if results_list else None,
         )
         return stock_detail
 
@@ -105,14 +106,14 @@ async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult
 
 
 # Process CCI indicator
-async def process_cci(stock_screener, quotes, indicator) -> bool:
+async def process_cci(stock_screener, quotes, indicator) -> int | None:
     results = indicators.get_cci(quotes, indicator.time_period)
-    start_date = stock_screener.start_date - indicator.time_period * 86400
 
     filtered_results = [
         result
         for result in results
-        if Utils.to_local_timestamp(result.date.timestamp()) >= start_date
+        if Utils.to_local_timestamp(result.date.timestamp())
+        >= stock_screener.start_date
     ]
 
     for result in filtered_results:
@@ -121,6 +122,7 @@ async def process_cci(stock_screener, quotes, indicator) -> bool:
 
         within_date_range = (
             stock_screener.start_date
+            + get_indicator_required_date_offset(stock_screener)
             <= Utils.to_local_timestamp(result.date.timestamp())
             <= stock_screener.end_date
         )
@@ -134,13 +136,13 @@ async def process_cci(stock_screener, quotes, indicator) -> bool:
                 and indicator.oversold is not None
                 and result.cci <= indicator.oversold
             ):
-                return True
+                return int(result.date.timestamp())
 
-    return False
+    return None
 
 
 # Process MACD indicator
-async def process_macd(stock_screener, quotes, indicator) -> bool:
+async def process_macd(stock_screener, quotes, indicator) -> int | None:
     results = indicators.get_macd(
         quotes,
         indicator.fast_period,
@@ -191,31 +193,29 @@ async def process_macd(stock_screener, quotes, indicator) -> bool:
                 and (histogram_to_positive or previous_histogram == histogram)
             )
             if bearish or bullish:
-                return True
+                return int(result.date.timestamp())
 
         previous_macd = macd
         previous_signal = signal
         previous_histogram = histogram
 
-    return False
+    return None
 
 
 # Process KDJ indicator
-async def process_kdj(stock_screener, quotes, indicator) -> bool:
+async def process_kdj(stock_screener, quotes, indicator) -> int | None:
     results = indicators.get_stoch(
         quotes,
         indicator.loopback_period,
         indicator.signal_period,
         indicator.smooth_period,
     )
-    start_date = (
-        stock_screener.start_date
-        - (indicator.loopback_period + indicator.smooth_period) * 86400
-    )
+
     filtered_results = [
         result
         for result in results
-        if Utils.to_local_timestamp(result.date.timestamp()) >= start_date
+        if Utils.to_local_timestamp(result.date.timestamp())
+        >= stock_screener.start_date
     ]
 
     previous_k, previous_d = None, None
@@ -231,6 +231,7 @@ async def process_kdj(stock_screener, quotes, indicator) -> bool:
 
         within_date_range = (
             stock_screener.start_date
+            + get_indicator_required_date_offset(stock_screener)
             <= Utils.to_local_timestamp(result.date.timestamp())
             <= stock_screener.end_date
         )
@@ -248,12 +249,12 @@ async def process_kdj(stock_screener, quotes, indicator) -> bool:
             )
 
             if golden_cross_condition or death_cross_condition:
-                return True
+                return int(result.date.timestamp())
 
         previous_k = result.k
         previous_d = result.d
 
-    return False
+    return None
 
 
 # Get all available rules
