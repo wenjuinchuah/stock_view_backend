@@ -1,11 +1,9 @@
 import asyncio
-import concurrent
 import os
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 
+import pandas as pd
 import yfinance as yf
-from sqlalchemy import func
 from stock_indicators import Quote
 
 import app.api.crud.stock as StockCRUD
@@ -212,47 +210,41 @@ def is_data_available(db) -> bool:
     return PriceListBase.exists(db)
 
 
-def parse_sql_file(path, db):
-    if os.path.isfile(path):
-        with open(path, "r") as file:
-            data_chunk = []
-            for line in file:
-                if line.startswith("INSERT INTO"):
-                    data = line.split("VALUES ")[1].split(";")[0].split(",")
-                    for i in range(0, len(data), 9):
-                        data_chunk.append(
-                            PriceList(
-                                pricelist_id=data[i].removeprefix("("),
-                                open=float(data[i + 1]),
-                                close=float(data[i + 2]),
-                                adj_close=float(data[i + 3]),
-                                high=float(data[i + 4]),
-                                low=float(data[i + 5]),
-                                volume=int(data[i + 6]),
-                                datetime=int(data[i + 7]),
-                                stock_code=data[i + 8].removesuffix(")"),
-                            ).to_base()
-                        )
-                        if len(data_chunk) >= 1000:
-                            yield data_chunk
-                            data_chunk = []
-            if data_chunk:
-                yield data_chunk
-    else:
-        raise Exception("Price list data file not found")
-
-
-# TODO: Initialize price list data from SQL file (Temporary solutions)
 async def initialize(db) -> int:
-    path = "app/assets/price_list.sql"
-    counter = 0
+    path = "app/assets/price_list.csv"
 
-    # Use a ThreadPoolExecutor to run the database operations in a separate thread
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        loop = asyncio.get_event_loop()
-        for data_chunk in parse_sql_file(path, db):
-            counter += len(data_chunk)
-            await loop.run_in_executor(executor, db.bulk_save_objects, data_chunk)
-            await loop.run_in_executor(executor, db.commit)
+    if not os.path.exists(path):
+        raise Exception("Price list data is not available")
 
-    return counter
+    # Use pandas to read the CSV file
+    df = pd.read_csv(path, dtype={8: str})
+
+    # Convert the DataFrame to a list of dictionaries
+    data = df.to_dict("records")
+
+    # Replace NaN with -1
+    for record in data:
+        for key in record:
+            if pd.isna(record[key]):
+                record[key] = "-1"
+
+    # Convert the records to PriceListBase objects
+    price_lists = [
+        PriceListBase(
+            pricelist_id=record["pricelist_id"],
+            open=record["open"],
+            close=record["close"],
+            adj_close=record["adj_close"],
+            high=record["high"],
+            low=record["low"],
+            volume=record["volume"],
+            timestamp=record["timestamp"],
+            stock_code=record["stock_code"],
+        )
+        for record in data
+    ]
+
+    # Bulk update the database
+    PriceListBase.bulk_update(db, price_lists)
+
+    return len(price_lists)
