@@ -1,12 +1,12 @@
 import asyncio
 from datetime import timedelta
 
-from stock_indicators import indicators
+from stock_indicators import indicators, MAType, Quote
 
 import app.api.crud.price_list as PriceListCRUD
 import app.api.crud.stock as StockCRUD
 import app.api.crud.utils as Utils
-from app.api.models.stock import StockDetails
+from app.api.models.stock import StockDetails, MatchedIndicator
 from app.api.models.stock_indicator import (
     Indicator,
     CCIIndicator,
@@ -58,7 +58,7 @@ async def fetch_db(
                 quote_list[-1].close / quote_list[len(quote_list) - 2].close - 1
             )
             * 100,
-            matched_timestamp=min(results_list) if results_list else None,
+            matched_indicator=results_list if results_list else None,
         )
         return stock_detail
 
@@ -105,7 +105,7 @@ async def screen_stock(stock_screener: StockScreener, db) -> StockScreenerResult
 
 
 # Process CCI indicator
-async def process_cci(stock_screener, quotes, indicator) -> int | None:
+async def process_cci(stock_screener, quotes, indicator) -> MatchedIndicator | None:
     results = indicators.get_cci(quotes, indicator.time_period)
 
     for result in results:
@@ -127,13 +127,16 @@ async def process_cci(stock_screener, quotes, indicator) -> int | None:
                 and indicator.oversold is not None
                 and result.cci <= indicator.oversold
             ):
-                return Utils.datetime_to_timestamp(result.date)
+                return MatchedIndicator(
+                    indicator=Indicator.CCI,
+                    matched_at=Utils.datetime_to_timestamp(result.date),
+                )
 
     return None
 
 
 # Process MACD indicator
-async def process_macd(stock_screener, quotes, indicator) -> int | None:
+async def process_macd(stock_screener, quotes, indicator) -> MatchedIndicator | None:
     results = indicators.get_macd(
         quotes,
         indicator.fast_period,
@@ -183,7 +186,10 @@ async def process_macd(stock_screener, quotes, indicator) -> int | None:
                 and histogram_to_positive
             )
             if bearish or bullish:
-                return Utils.datetime_to_timestamp(result.date)
+                return MatchedIndicator(
+                    indicator=Indicator.MACD,
+                    matched_at=Utils.datetime_to_timestamp(result.date),
+                )
 
         previous_macd = macd
         previous_signal = signal
@@ -193,14 +199,14 @@ async def process_macd(stock_screener, quotes, indicator) -> int | None:
 
 
 # Process KDJ indicator
-async def process_kdj(stock_screener, quotes, indicator) -> int | None:
+async def process_kdj(stock_screener, quotes, indicator) -> MatchedIndicator | None:
     results = indicators.get_stoch(
         quotes,
         indicator.loopback_period,
         indicator.signal_period,
         indicator.smooth_period,
+        ma_type=MAType.SMMA,
     )
-
     previous_k, previous_d = None, None
 
     for result in results:
@@ -232,7 +238,10 @@ async def process_kdj(stock_screener, quotes, indicator) -> int | None:
             )
 
             if golden_cross_condition or death_cross_condition:
-                return Utils.datetime_to_timestamp(result.date)
+                return MatchedIndicator(
+                    indicator=Indicator.KDJ,
+                    matched_at=Utils.datetime_to_timestamp(result.date),
+                )
 
         previous_k = result.k
         previous_d = result.d
