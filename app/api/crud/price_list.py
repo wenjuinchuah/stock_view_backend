@@ -14,10 +14,11 @@ from app.api.models.price_list import PriceList
 
 
 # Fetch price list data for a stock code
-async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
+async def fetch(stock_code: str, period: str, db) -> list[PriceListBase]:
     print(f"Fetching price list data for {stock_code}  ", end="\r")
 
     price_list_data = []
+    new_rows = []
 
     # Get price list data
     latest_timestamp = PriceListBase.get_latest_timestamp_by_stock_code(db, stock_code)
@@ -28,15 +29,16 @@ async def fetch(stock_code: str, period: str, db) -> list[PriceList]:
             start_date=Utils.timestamp_to_datetime(start_timestamp),
             end_date=Utils.datetime_now(),
         )
+        # Add new rows if they don't already exist
+        new_rows = [
+            data
+            for data in price_list_data
+            if not PriceListBase.get(db, data.pricelist_id)
+        ]
     else:
         price_list_data = await get_price_list_data(stock_code, period=period)
+        new_rows = price_list_data
 
-    # Add new rows if they don't already exist
-    new_rows = [
-        data.to_base()
-        for data in price_list_data
-        if not PriceListBase.get(db, data.pricelist_id)
-    ]
     # Bulk save new rows to the database
     PriceListBase.bulk_update(db, new_rows)
 
@@ -59,7 +61,7 @@ async def update(db) -> int:
 
 # Get price list data for a stock code
 def get(stock_code: str, db) -> list[PriceList]:
-    print(f"Fetching price list data for {stock_code}  ", end="\r")
+    print(f"Getting price list data for {stock_code}  ", end="\r")
     price_list = PriceListBase.get_all_by_stock_code(db, stock_code)
     return [
         data.to_price_list()
@@ -103,9 +105,7 @@ async def get_price_list_data(
     period: str | None = "1y",
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-) -> list[PriceList]:
-    price_list = []
-
+) -> list[PriceListBase]:
     tickers = (f"{stock_code}.KL",)
 
     if start_date and end_date:
@@ -115,24 +115,31 @@ async def get_price_list_data(
 
     # fill NaN with -1 /
     if stock_df.empty:
-        return price_list
+        return []
 
-    for index, row in stock_df.iterrows():
-        timestamp = int(index.timestamp())
-        price_list.append(
-            PriceList(
-                pricelist_id=f"{stock_code}_{timestamp}",
-                open=round(row["Open"], 5),
-                close=round(row["Close"], 5),
-                adj_close=round(row["Adj Close"], 5),
-                high=round(row["High"], 5),
-                low=round(row["Low"], 5),
-                volume=int(row["Volume"]),
-                timestamp=timestamp,
-                stock_code=stock_code,
-            )
-        )
-    return price_list
+    data = stock_df.reset_index()
+    data = data.to_dict("records")
+
+    return (
+        pd.DataFrame(data)
+        .apply(lambda record: create_price_list(record, stock_code), axis=1)
+        .to_list()
+    )
+
+
+def create_price_list(record, stock_code: str) -> PriceListBase:
+    timestamp = Utils.datetime_to_timestamp(record["Date"])
+    return PriceListBase(
+        pricelist_id=f"{stock_code}_{timestamp}",
+        open=round(record["Open"], 5),
+        close=round(record["Close"], 5),
+        adj_close=round(record["Adj Close"], 5),
+        high=round(record["High"], 5),
+        low=round(record["Low"], 5),
+        volume=int(record["Volume"]),
+        timestamp=timestamp,
+        stock_code=stock_code,
+    )
 
 
 # Adjust price list data
