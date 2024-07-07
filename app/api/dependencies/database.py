@@ -1,13 +1,19 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # username:password@host:port/database
-IS_PRODUCTION = True
+IS_PRODUCTION = False
+DATABASE_NAME = "stock_view"
 DATABASE_PREFIX = "db" if IS_PRODUCTION else "localhost"
 URL_DATABASE = f"mysql+pymysql://root:@{DATABASE_PREFIX}:3306/"
 
-engine = create_engine(URL_DATABASE + "stock_view")
+engine = create_engine(URL_DATABASE)
+
+with engine.connect() as connection:
+    connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {DATABASE_NAME}"))
+
+engine = create_engine(URL_DATABASE + DATABASE_NAME)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
