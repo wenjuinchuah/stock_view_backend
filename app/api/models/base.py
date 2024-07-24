@@ -41,6 +41,14 @@ class StockBase(Base):
             .all()
         )
 
+    @staticmethod
+    def get_index_by_stock_code(db, stock_code: str) -> int:
+        all_stocks = StockBase.get_all(db)
+        for index, stock in enumerate(all_stocks):
+            if stock.stock_code == stock_code:
+                return index + 1
+        return -1
+
 
 class PriceListBase(Base):
     __tablename__ = "price_list"
@@ -110,3 +118,11 @@ class PriceListBase(Base):
     @staticmethod
     def exists(db) -> bool:
         return db.query(db.query(PriceListBase).exists()).scalar()
+
+    @staticmethod
+    def get_last_updated_price_list_data(db) -> "PriceListBase":
+        return (
+            db.query(PriceListBase)
+            .order_by(PriceListBase.stock_code.desc(), PriceListBase.timestamp.desc())
+            .first()
+        )

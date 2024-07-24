@@ -12,7 +12,7 @@ class Response:
             pass
         elif isinstance(o, str):
             o = {"message": o}
-        elif isinstance(o, bool):
+        elif isinstance(o, bool) or isinstance(o, int) or isinstance(o, float):
             o = o
         elif isinstance(o, object) and o is not None:
             o = o.__dict__
@@ -20,10 +20,6 @@ class Response:
             "status": "SUCCESS",
             "data": o,
         }
-
-
-class Page:
-    rows_per_page = 100
 
 
 class TimePeriod:

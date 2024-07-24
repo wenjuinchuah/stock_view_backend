@@ -9,7 +9,7 @@ from app.api.dependencies.database import engine
 
 app = FastAPI()
 
-db.Base.metadata.create_all(bind=engine)
+db.Base.metadata.create_all(bind=engine, checkfirst=True)
 
 # Add middleware to enable CORS
 app.add_middleware(

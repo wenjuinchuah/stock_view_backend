@@ -1,5 +1,4 @@
 import asyncio
-import os
 from datetime import datetime
 
 import pandas as pd
@@ -9,7 +8,7 @@ from stock_indicators import Quote
 import app.api.crud.stock as StockCRUD
 import app.api.crud.utils as Utils
 from app.api.constants import TimePeriod
-from app.api.models.base import PriceListBase
+from app.api.models.base import PriceListBase, StockBase
 from app.api.models.price_list import PriceList
 
 
@@ -79,7 +78,7 @@ def get_price_list(
     if price_list:
         # Sort by timestamp
         price_list = sorted(price_list, key=lambda x: x.timestamp)
-        # Adjust price list if auto_adjust is True
+        # Adjust price list if auto_adjust is True (Calculated instead of using adjusted_close in database)
         price_list = adjust_price_list(price_list) if auto_adjust else price_list
 
         return price_list_time_period(price_list, time_period)
@@ -217,41 +216,8 @@ def is_data_available(db) -> bool:
     return PriceListBase.exists(db)
 
 
-async def initialize(db) -> int:
-    path = "app/assets/price_list.csv"
-
-    if not os.path.exists(path):
-        raise Exception("Price list data is not available")
-
-    # Use pandas to read the CSV file
-    df = pd.read_csv(path, dtype={8: str})
-
-    # Convert the DataFrame to a list of dictionaries
-    data = df.to_dict("records")
-
-    # Replace NaN with -1
-    for record in data:
-        for key in record:
-            if pd.isna(record[key]):
-                record[key] = "-1"
-
-    # Convert the records to PriceListBase objects
-    price_lists = [
-        PriceListBase(
-            pricelist_id=record["pricelist_id"],
-            open=record["open"],
-            close=record["close"],
-            adj_close=record["adj_close"],
-            high=record["high"],
-            low=record["low"],
-            volume=record["volume"],
-            timestamp=record["timestamp"],
-            stock_code=record["stock_code"],
-        )
-        for record in data
-    ]
-
-    # Bulk update the database
-    PriceListBase.bulk_update(db, price_lists)
-
-    return len(price_lists)
+def get_last_updated_price_list_data(db) -> int:
+    pricelist = PriceListBase.get_last_updated_price_list_data(db)
+    return (
+        StockBase.get_index_by_stock_code(db, pricelist.stock_code) if pricelist else 0
+    )

@@ -75,6 +75,6 @@ def get_matched_stock_details(db: db_dependency, query: str | None):
 async def update_stock(db: db_dependency):
     try:
         counter = await StockCRUD.update_stock(db)
-        return Response.success(f"{counter} stock(s) added/updated successfully")
+        return Response.success(counter)
     except Exception as e:
         return Response.error(e)

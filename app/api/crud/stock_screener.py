@@ -205,7 +205,10 @@ async def process_kdj(stock_screener, quotes, indicator) -> MatchedIndicator | N
         indicator.loopback_period,
         indicator.signal_period,
         indicator.smooth_period,
-        ma_type=MAType.SMMA,
+        ma_type=MAType.SMA,
+        # TODO: Frontend uses SMMA to draw the KDJ graph, however the library used in backend hits index out of range
+        # Therefore, SMA is used for now and the returned MatchedIndicator will not be accurate
+        # ma_type=MAType.SMMA,
     )
     previous_k, previous_d = None, None
 

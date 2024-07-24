@@ -45,15 +45,6 @@ async def update_price_list(db: db_dependency):
         return Response.error(e)
 
 
-@router.get("/update/initialize", status_code=status.HTTP_200_OK)
-async def initialize_update_price_list(db: db_dependency):
-    try:
-        counter = await crud.initialize(db)
-        return Response.success(f"{counter} price list added/updated successfully")
-    except Exception as e:
-        return Response.error(e)
-
-
 @router.get("/is_after_trading_hour", status_code=status.HTTP_200_OK)
 def is_after_trading_hour(db: db_dependency):
     try:
@@ -68,5 +59,14 @@ def is_data_available(db: db_dependency):
     try:
         is_available = crud.is_data_available(db)
         return Response.success(is_available)
+    except Exception as e:
+        return Response.error(e)
+
+
+@router.get("/get_last_updated_price_list_index", status_code=status.HTTP_200_OK)
+def get_last_updated_price_list_index(db: db_dependency):
+    try:
+        stock_index = crud.get_last_updated_price_list_data(db)
+        return Response.success(stock_index)
     except Exception as e:
         return Response.error(e)
