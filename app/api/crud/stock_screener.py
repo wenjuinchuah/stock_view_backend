@@ -1,7 +1,7 @@
 import asyncio
 from datetime import timedelta
 
-from stock_indicators import indicators, MAType, Quote
+from stock_indicators import indicators, MAType
 
 import app.api.crud.price_list as PriceListCRUD
 import app.api.crud.stock as StockCRUD
@@ -12,6 +12,7 @@ from app.api.models.stock_indicator import (
     CCIIndicator,
     MACDIndicator,
     KDJIndicator,
+    # TODO: Add new indicator here
 )
 from app.api.models.stock_screener import StockScreener, StockScreenerResult
 
@@ -41,6 +42,8 @@ async def fetch_db(
 
     if results.stock_indicator.kdj is not None:
         tasks.append(process_kdj(results, quote_list, results.stock_indicator.kdj))
+
+    # TODO: Add new indicator processing here
 
     results_list = await asyncio.gather(*tasks)
 
@@ -252,12 +255,16 @@ async def process_kdj(stock_screener, quotes, indicator) -> MatchedIndicator | N
     return None
 
 
+# TODO: Add new indicator processing function here
+
+
 # Get all available rules
 def get_available_rules():
     return {
         Indicator.CCI: CCIIndicator(),
         Indicator.MACD: MACDIndicator(),
         Indicator.KDJ: KDJIndicator(),
+        # TODO: Add new indicator here
     }
 
 
@@ -276,6 +283,7 @@ def get_indicator_selector():
             "golden_cross": "Golden Cross (Bullish)",
             "death_cross": "Death Cross (Bearish)",
         },
+        # TODO: Add new indicator here
     }
 
 
@@ -283,6 +291,7 @@ def get_indicator_selector():
 def get_indicator_required_date_offset(results: StockScreenerResult) -> int:
     indicator = results.stock_indicator
 
+    # TODO: Add new indicator here based on the required date offset (the longest offset should always be used)
     if indicator.macd is not None:
         macd_offset = indicator.macd.slow_period + indicator.macd.signal_period
         offset = (

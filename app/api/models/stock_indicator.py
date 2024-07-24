@@ -8,6 +8,7 @@ class Indicator(Enum):
     CCI = "cci"
     MACD = "macd"
     KDJ = "kdj"
+    # TODO: Add new indicator here
 
 
 class CCIIndicator(BaseModel):
@@ -32,7 +33,11 @@ class KDJIndicator(BaseModel):
     death_cross: bool | None = False
 
 
+# TODO: Add new indicator here
+
+
 class StockIndicator(BaseModel):
     cci: Optional["CCIIndicator"] = None
     macd: Optional["MACDIndicator"] = None
     kdj: Optional["KDJIndicator"] = None
+    # TODO: Add new indicator here
