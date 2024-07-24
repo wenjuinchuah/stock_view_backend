@@ -29,9 +29,13 @@ RUN pip install -r requirements.txt
 # Copy the assets directory into the Docker image
 COPY app/assets /app/assets
 COPY . .
+COPY start.sh /start.sh
+
+# Make the script executable
+RUN chmod +x /start.sh
 
 # Expose the port FastAPI runs on
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--workers", "3", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application using the start script
+CMD ["/start.sh"]

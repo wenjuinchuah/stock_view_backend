@@ -2,11 +2,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# username:password@host:port/database
-IS_PRODUCTION = False
+IS_PRODUCTION = True
 DATABASE_NAME = "stock_view"
 DATABASE_PREFIX = "db" if IS_PRODUCTION else "localhost"
-URL_DATABASE = f"mysql+pymysql://root:@{DATABASE_PREFIX}:3306/"
+URL_DATABASE = f"mysql+pymysql://root:@{DATABASE_PREFIX}:3306/"  # username:password@host:port/database
 
 engine = create_engine(URL_DATABASE)
 
