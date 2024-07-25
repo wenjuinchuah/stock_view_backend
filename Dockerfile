@@ -19,6 +19,12 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
+# Install MySQL client
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        default-mysql-client \
+ && rm -rf /var/lib/apt/lists/*
+
 # Set working directory for Python code
 WORKDIR /backend
 
