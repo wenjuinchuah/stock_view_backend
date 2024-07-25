@@ -20,8 +20,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
 # Get the PID of the uvicorn process
 UVICORN_PID=$!
 
-# Wait for 5 seconds to let the first process start
-sleep 5
+# Wait for 10 seconds to let the first process start
+sleep 10
 
 # Send the SIGINT signal to the uvicorn process (simulating Ctrl + C)
 kill -2 $UVICORN_PID
